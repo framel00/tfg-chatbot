@@ -5,20 +5,10 @@ export default async function handler(req, res) {
   try {
     const { mensaje, caso, modo } = req.body;
 
-    // 🧪 DEBUG 1
-    console.log("BODY:", req.body);
-
-    // 📂 Cargar JSON
+    // 📂 Cargar casos
     const filePath = path.join(process.cwd(), "data", "casos.json");
     const rawData = fs.readFileSync(filePath, "utf-8");
-
-    // 🧪 DEBUG 2
-    console.log("RAW JSON cargado");
-
     const data = JSON.parse(rawData);
-
-    // 🧪 DEBUG 3
-    console.log("JSON parseado OK");
 
     const casoData = data.casos?.[caso];
 
@@ -31,40 +21,88 @@ export default async function handler(req, res) {
     let prompt = "";
 
     // =========================
-    // 🧑‍⚕️ PACIENTE
+    // 🧑‍⚕️ MODO PACIENTE
     // =========================
     if (modo === "paciente") {
       prompt = `
-Eres un paciente simulado.
+Eres un paciente simulado en un entorno clínico tipo ECOE.
 
-Habla de forma natural, breve y realista.
+OBJETIVO:
+Responder como un paciente real para ayudar al estudiante a razonar.
 
-CONTEXTO:
+REGLAS:
+- NO reveles el diagnóstico.
+- NO des información no preguntada.
+- Responde de forma natural, breve y realista (2-4 líneas).
+- Si te preguntan por síntomas → respóndelos.
+- Si te preguntan por pruebas (analítica, TAC, RX, etc) → proporciona los resultados como si ya estuvieran hechos.
+- NO ofrezcas pruebas por iniciativa propia.
+- Mantén coherencia con lo ya dicho.
+
+CONTEXTO DEL CASO:
 ${casoData.resumen}
 
-INFO:
+INFORMACIÓN INICIAL:
 ${casoData.info_paciente}
 
-Usuario:
-${mensaje}
+El médico pregunta:
+"${mensaje}"
+
+Responde SOLO como paciente.
 `;
     }
 
     // =========================
-    // 🧠 TUTOR
+    // 🧠 MODO TUTOR SOCRÁTICO
     // =========================
     if (modo === "tutor") {
       prompt = `
-Evalúa el diagnóstico del alumno.
+Eres un tutor clínico experto estilo ECOE/MIR.
 
-Diagnóstico alumno:
-${mensaje}
+El alumno propone:
+"${mensaje}"
 
-Correcto:
+Diagnóstico correcto:
 ${casoData.diagnostico}
 
-Datos clave:
-${casoData.datos_clave.join(", ")}
+Datos clave del caso:
+${casoData.datos_clave.slice(0,6).join(", ")}
+
+TAREA:
+
+1. Di si el diagnóstico es CORRECTO o INCORRECTO.
+2. Razonamiento clínico breve.
+3. Estilo socrático:
+   - Qué ha hecho bien
+   - Qué le ha faltado
+   - Qué es secundario o menos relevante
+4. Señala errores si los hay.
+
+ESTILO:
+- Didáctico
+- Directo
+- Como un adjunto corrigiendo un ECOE
+- Máximo 120-150 palabras
+
+FORMATO:
+✔️/❌ Diagnóstico  
+🧠 Razonamiento  
+📌 Puntos clave  
+⚠️ Errores
+`;
+    }
+
+    // =========================
+    // 💊 MODO TRATAMIENTO
+    // =========================
+    if (modo === "tratamiento") {
+      prompt = `
+Eres un tutor clínico.
+
+Explica de forma clara, práctica y esquemática:
+
+1. Algoritmo diagnóstico óptimo
+2. Tratamiento del caso
 
 Algoritmo:
 ${casoData.algoritmo.join(" → ")}
@@ -72,12 +110,19 @@ ${casoData.algoritmo.join(" → ")}
 Tratamiento:
 ${casoData.tratamiento.join(" → ")}
 
-Responde estructurado.
+ESTILO:
+- Muy estructurado
+- Muy claro
+- Orientado a examen MIR/ECOE
+- Sin relleno
+
+FORMATO:
+🧪 Algoritmo  
+💊 Tratamiento
+
+Máximo 150 palabras.
 `;
     }
-
-    // 🧪 DEBUG 4
-    console.log("PROMPT generado");
 
     // 🤖 OpenAI
     const response = await fetch("https://api.openai.com/v1/responses", {
@@ -94,9 +139,6 @@ Responde estructurado.
 
     const dataOpenAI = await response.json();
 
-    // 🧪 DEBUG 5
-    console.log("OPENAI RESPONSE:", dataOpenAI);
-
     const reply =
       dataOpenAI.output?.[0]?.content?.[0]?.text ||
       "Error generando respuesta.";
@@ -104,8 +146,6 @@ Responde estructurado.
     return res.status(200).json({ reply });
 
   } catch (error) {
-    console.error("ERROR:", error);
-
     return res.status(500).json({
       reply: "Error interno del servidor.",
       error: error.message
