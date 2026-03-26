@@ -1,8 +1,6 @@
 {
   "casos": {
 
-  // CASO 1
-
   "cardiaca_1": {
     "resumen": "Paciente con prolapso de válvula mitral conocido que presenta disnea progresiva, palpitaciones y empeoramiento reciente, compatible con insuficiencia mitral severa por rotura cordal.",
 
@@ -52,41 +50,6 @@
     ]
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// CASO 2
 
   "vascular_1": {
     "resumen": "Varón de 68 años con factores de riesgo cardiovascular que presenta molestias abdominales inespecíficas y dolor lumbar, con hallazgo de masa pulsátil abdominal compatible con aneurisma de aorta abdominal infrarrenal de gran tamaño.",
@@ -142,35 +105,6 @@
     ]
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// CASO 3:
 
   "vascular_2": {
     "resumen": "Mujer joven con factores de riesgo protrombóticos que presenta dolor, edema y calor en extremidad inferior izquierda, diagnosticada de trombosis venosa profunda proximal.",
@@ -230,35 +164,6 @@
   }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// CASO 4:
-
   "toracica_1": {
     "resumen": "Varón joven con traumatismo torácico penetrante que presenta disnea y dolor torácico, con hallazgos compatibles con hemoneumotórax secundario a herida por arma blanca.",
 
@@ -317,35 +222,6 @@
     ]
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// CASO 5:
 
   "toracica_2": {
     "resumen": "Varón fumador con tos persistente, hemoptisis y pérdida de peso, con masa pulmonar central y adenopatías mediastínicas, diagnosticado de cáncer de pulmón no microcítico estadio IIIA.",
@@ -407,33 +283,6 @@
   }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// CASO 6:
-
   "digestivo_1": {
     "resumen": "Mujer intervenida de bypass gástrico que presenta dolor abdominal, fiebre y vómitos, diagnosticada de fuga anastomótica contenida postquirúrgica.",
 
@@ -488,41 +337,6 @@
     ]
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// CASO 7:
 
   "digestivo_2": {
     "resumen": "Varón joven con dolor abdominal migratorio a fosa ilíaca derecha, fiebre y signos de irritación peritoneal, diagnosticado de apendicitis aguda no complicada.",
@@ -581,38 +395,6 @@
   }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// CASO 8:
-
   "digestivo_3": {
     "resumen": "Varón mayor con rectorragia, anemia ferropénica y cambio del hábito intestinal, diagnosticado de cáncer colorrectal en sigma estadio IIIB.",
 
@@ -670,37 +452,6 @@
     ]
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// CASO 9:
 
   "digestivo_4": {
     "resumen": "Varón cirrótico con nódulo hepático hipervascular y AFP elevada, diagnosticado de carcinoma hepatocelular en estadio temprano.",
