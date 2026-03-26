@@ -1,83 +1,124 @@
+import fs from "fs";
+import path from "path";
+
 export default async function handler(req, res) {
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    const { mensaje, caso, modo } = body;
+    const { mensaje, caso, modo } = req.body;
 
-  const prompt =
-  modo === "paciente"
-    ? `Eres un paciente simulado. Caso clínico: ${caso}. 
-Responde como un paciente real:
-- lenguaje no técnico
-- respuestas breves
-- no des diagnósticos
-- solo da información si te preguntan`
+    // 📂 1. Cargar base de casos
+    const filePath = path.join(process.cwd(), "data", "casos.json");
+    const rawData = fs.readFileSync(filePath, "utf-8");
+    const data = JSON.parse(rawData);
 
-    : modo === "evaluador"
-    ? `Eres un tutor clínico experto en ECOE.
+    const casoData = data.casos[caso];
 
-Caso clínico:
-${caso}
+    if (!casoData) {
+      return res.status(400).json({
+        reply: "Error: caso clínico no encontrado."
+      });
+    }
 
-El alumno propone:
-${mensaje}
+    let prompt = "";
 
-Evalúa de forma estructurada:
+    // =========================
+    // 🧑‍⚕️ MODO PACIENTE
+    // =========================
+    if (modo === "paciente") {
+      prompt = `
+Eres un paciente simulado en un entorno clínico tipo ECOE.
 
-1. ¿Diagnóstico correcto o incorrecto?
-2. Justificación clínica breve
-3. Qué le ha faltado preguntar
-4. Puntos fuertes
-5. Nota del 1 al 10
+Tu objetivo es ayudar a un estudiante de medicina a entrenar su razonamiento clínico.
 
-Sé claro y docente.`
+REGLAS OBLIGATORIAS:
+- NO reveles el diagnóstico bajo ningún concepto.
+- NO sugieras pruebas si no te las piden.
+- NO des información no preguntada.
+- Responde como una persona normal, no como un libro.
+- Usa lenguaje natural, sencillo y realista.
+- Respuestas cortas (2-4 líneas máximo).
 
-    : modo === "feedback"
-    ? `Eres un médico especialista que enseña razonamiento clínico.
+CONTEXTO DEL CASO:
+${casoData.resumen}
 
-Caso clínico:
-${caso}
+INFORMACIÓN BASE DEL PACIENTE:
+${casoData.info_paciente}
 
-El alumno propone:
-${mensaje}
+El estudiante dice:
+"${mensaje}"
 
-Explica de forma estructurada:
+Responde SOLO como paciente.
+`;
+    }
 
-1. Diagnóstico más probable
-2. Diagnósticos diferenciales importantes
-3. Algoritmo diagnóstico paso a paso
-4. Pruebas complementarias clave
-5. Tratamiento inicial
-6. Perlas clínicas tipo MIR
+    // =========================
+    // 🧠 MODO TUTOR SOCRÁTICO
+    // =========================
+    if (modo === "tutor") {
+      prompt = `
+Eres un tutor clínico experto en medicina, estilo examen ECOE/MIR.
 
-Sé claro, ordenado y didáctico.`
+El alumno propone como diagnóstico:
+"${mensaje}"
 
-    : `Error: modo no reconocido`;
+DIAGNÓSTICO CORRECTO:
+${casoData.diagnostico}
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+DATOS CLAVE DEL CASO:
+${casoData.datos_clave.join(", ")}
+
+TU TAREA:
+
+1. Evalúa si el diagnóstico es CORRECTO o INCORRECTO.
+2. Explica el razonamiento clínico paso a paso:
+   - Qué datos eran clave
+   - Cómo orientar el diagnóstico diferencial
+3. Explica el algoritmo diagnóstico óptimo:
+   ${casoData.algoritmo.join(" → ")}
+4. Explica el tratamiento de forma clara:
+   ${casoData.tratamiento.join(" → ")}
+5. Señala errores típicos si el alumno se ha equivocado.
+
+ESTILO:
+- Muy claro y estructurado
+- Didáctico pero conciso
+- Nivel estudiante de medicina avanzado
+- Nada de relleno ni teoría innecesaria
+
+RESPUESTA ESTRUCTURADA:
+- ✔️ / ❌ Diagnóstico
+- 🧠 Razonamiento
+- 🧪 Algoritmo
+- 💊 Tratamiento
+- ⚠️ Errores (si aplica)
+`;
+    }
+
+    // =========================
+    // 🤖 LLAMADA A OPENAI
+    // =========================
+    const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: prompt },
-          { role: "user", content: mensaje || "Hola" }
-        ]
+        model: "gpt-5.3",
+        input: prompt
       })
     });
 
-    const data = await response.json();
+    const dataOpenAI = await response.json();
 
-    return res.status(200).json({
-      reply: data.choices[0].message.content
-    });
+    const reply =
+      dataOpenAI.output?.[0]?.content?.[0]?.text ||
+      "Error generando respuesta.";
+
+    return res.status(200).json({ reply });
 
   } catch (error) {
     return res.status(500).json({
-      error: "Error en el servidor",
-      detalle: error.message
+      reply: "Error interno del servidor."
     });
   }
 }
