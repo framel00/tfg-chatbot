@@ -121,6 +121,16 @@ function cargarCaso(caso) {
   }
 }
 
+// 🔥 NUEVO: EXTRAER SECCIÓN DEL MARKDOWN
+function extraerSeccion(markdown, seccion) {
+  const regex = new RegExp(
+    `## ${seccion}([\\s\\S]*?)(## |$)`,
+    "i"
+  );
+  const match = markdown.match(regex);
+  return match ? match[1].trim() : "";
+}
+
 // 🔹 HANDLER PRINCIPAL
 export default async function handler(req, res) {
   try {
@@ -135,6 +145,17 @@ export default async function handler(req, res) {
 
     if (!casoMarkdown) {
       return res.status(500).json({ error: "Caso no encontrado" });
+    }
+
+    // Seleccionar contenido según modo
+    let contenido = "";
+
+    if (modo === "paciente") {
+      contenido = extraerSeccion(casoMarkdown, "ROLEPLAY");
+    } else if (modo === "tutor") {
+      contenido = extraerSeccion(casoMarkdown, "FEEDBACK");
+    } else if (modo === "tratamiento") {
+      contenido = extraerSeccion(casoMarkdown, "TRATAMIENTO");
     }
 
     // 🧠 LLAMADA A OPENAI
@@ -154,8 +175,8 @@ export default async function handler(req, res) {
           {
             role: "user",
             content: `
-CASO CLÍNICO:
-${casoMarkdown}
+CONTENIDO DEL CASO:
+${contenido}
 
 MODO:
 ${modo}
