@@ -91,7 +91,7 @@ Debes incluir:
 4. Alternativas
 5. Seguimiento
 
-
+SOLO usa información de la sección TRATAMIENTO
 
 ----------------------------------------
 🚫 PROHIBIDO
