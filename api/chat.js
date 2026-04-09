@@ -117,11 +117,7 @@ export default async function handler(req, res) {
       contenido = casoMarkdown;
     }
 
-    // 🔥 DEBUG (puedes quitar luego)
-    console.log("=== DEBUG ===");
-    console.log("CASO:", caso);
-    console.log("MODO:", modo);
-    console.log("CONTENIDO LENGTH:", contenido.length);
+    
 
     // 🔹 LLAMADA OPENAI
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
