@@ -22,95 +22,49 @@ Recibirás siempre:
 El caso está dividido en secciones:
 
 ## ROLEPLAY
-Información que el paciente conoce y puede revelar.
-
 ## FEEDBACK
-Información para evaluar al alumno.
-
 ## TRATAMIENTO
-Plan diagnóstico y terapéutico correcto.
 
 ----------------------------------------
-🧠 REGLAS GENERALES (OBLIGATORIAS)
+🧠 REGLAS GENERALES
 ----------------------------------------
 
-- NUNCA inventes información que no esté en el caso
-- Si algo no aparece en el caso:
-  → responde: "No dispongo de esa información en este momento"
-- No adelantes diagnóstico ni pistas salvo que el modo lo permita
-- Mantén coherencia clínica en todo momento
+- NUNCA inventes información
+- Si algo no aparece:
+  → "No dispongo de esa información en este momento"
 
 ----------------------------------------
-🎭 MODO: PACIENTE
+🎭 MODO PACIENTE
 ----------------------------------------
 
-Actúas como un paciente real.
+- SOLO usa ROLEPLAY
+- No des info no preguntada
+- No des diagnóstico
 
-- SOLO puedes usar información de la sección ROLEPLAY
-- Responde de forma natural, no técnica
-- No reveles diagnóstico ni pruebas no solicitadas
-- No des información no preguntada directamente
-
-Si el usuario pide algo que:
-- No está en ROLEPLAY →
-  → "No dispongo de esa información"
-- Es irrelevante →
-  → "No creo que eso sea importante ahora mismo"
-
-⚠️ Si el usuario está completamente bloqueado:
-Puedes dar una ayuda MUY leve (sin revelar diagnóstico)
+Si no hay info:
+→ "No dispongo de esa información"
 
 ----------------------------------------
-🧠 MODO: TUTOR (FEEDBACK)
+🧠 MODO TUTOR
 ----------------------------------------
 
-Evalúas al alumno en base a su diagnóstico.
-
-Debes:
-
-1. Decir si el diagnóstico es correcto o no
-2. Explicar el razonamiento clínico correcto
-3. Indicar errores o cosas que faltaron
-4. Destacar puntos clave del caso
-
-- Usa tono docente y estructurado
-
-SOLO usa información de la sección FEEDBACK
+- SOLO usa FEEDBACK
+- Explica razonamiento
 
 ----------------------------------------
-💊 MODO: TRATAMIENTO
+💊 MODO TRATAMIENTO
 ----------------------------------------
 
-Explicas el manejo clínico del caso.
-
-Debes incluir:
-
-1. Enfoque inicial
-2. Pruebas diagnósticas
-3. Tratamiento de elección
-4. Alternativas
-5. Seguimiento
-
-SOLO usa información de la sección TRATAMIENTO
+- SOLO usa TRATAMIENTO
+- Explica manejo clínico
 
 ----------------------------------------
-🚫 PROHIBIDO
-----------------------------------------
-
-- Inventar datos
-- Mezclar modos
-- Adelantar diagnóstico en modo paciente
-
-----------------------------------------
-📌 PRIORIDAD ABSOLUTA
-----------------------------------------
-
-1. Respeta el modo
-2. Usa SOLO la sección correspondiente
-3. Mantén realismo clínico
+PRIORIDAD:
+1. Respeta modo
+2. Usa SOLO su sección
 `;
 
-// 🔹 FUNCIÓN PARA CARGAR CASO
+// 🔹 CARGAR CASO
 function cargarCaso(caso) {
   try {
     const filePath = path.join(process.cwd(), "data", "casos", `${caso}.md`);
@@ -121,17 +75,17 @@ function cargarCaso(caso) {
   }
 }
 
-// 🔥 NUEVO: EXTRAER SECCIÓN DEL MARKDOWN
+// 🔥 EXTRAER SECCIÓN (VERSIÓN ROBUSTA)
 function extraerSeccion(markdown, seccion) {
   const regex = new RegExp(
-    `## ${seccion}([\\s\\S]*?)(## |$)`,
+    `##\\s*${seccion}\\b([\\s\\S]*?)(?=##\\s|$)`,
     "i"
   );
   const match = markdown.match(regex);
   return match ? match[1].trim() : "";
 }
 
-// 🔹 HANDLER PRINCIPAL
+// 🔹 HANDLER
 export default async function handler(req, res) {
   try {
     const { mensaje, caso, modo } = req.body;
@@ -140,14 +94,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Faltan parámetros" });
     }
 
-    // 📄 Cargar markdown del caso
     const casoMarkdown = cargarCaso(caso);
 
     if (!casoMarkdown) {
       return res.status(500).json({ error: "Caso no encontrado" });
     }
 
-    // Seleccionar contenido según modo
+    // 🔥 EXTRAER CONTENIDO SEGÚN MODO
     let contenido = "";
 
     if (modo === "paciente") {
@@ -158,7 +111,19 @@ export default async function handler(req, res) {
       contenido = extraerSeccion(casoMarkdown, "TRATAMIENTO");
     }
 
-    // 🧠 LLAMADA A OPENAI
+    // 🔥 FALLBACK (MUY IMPORTANTE)
+    if (!contenido) {
+      console.log("⚠️ Sección no encontrada, usando fallback completo");
+      contenido = casoMarkdown;
+    }
+
+    // 🔥 DEBUG (puedes quitar luego)
+    console.log("=== DEBUG ===");
+    console.log("CASO:", caso);
+    console.log("MODO:", modo);
+    console.log("CONTENIDO LENGTH:", contenido.length);
+
+    // 🔹 LLAMADA OPENAI
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -168,10 +133,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          {
-            role: "system",
-            content: systemPrompt,
-          },
+          { role: "system", content: systemPrompt },
           {
             role: "user",
             content: `
@@ -181,7 +143,7 @@ ${contenido}
 MODO:
 ${modo}
 
-MENSAJE DEL USUARIO:
+MENSAJE:
 ${mensaje}
             `,
           },
@@ -192,11 +154,14 @@ ${mensaje}
 
     const data = await response.json();
 
+    console.log("OPENAI RESPONSE:", JSON.stringify(data, null, 2));
+
     const reply =
       data.choices?.[0]?.message?.content ||
-      "Ha ocurrido un error al generar la respuesta.";
+      "Error generando respuesta.";
 
     return res.status(200).json({ reply });
+
   } catch (error) {
     console.error("Error en API:", error);
     return res.status(500).json({ error: "Error interno del servidor" });
