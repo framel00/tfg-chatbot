@@ -145,7 +145,7 @@ export default async function handler(req, res) {
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-5.3",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
