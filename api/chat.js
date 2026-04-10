@@ -1,54 +1,109 @@
 import fs from "fs";
 import path from "path";
 
-// 🔥 PROMPT MAESTRO MEJORADO (ANTI-ALUCINACIONES)
+// =====================================================
+// 🧠 PROMPT MAESTRO DEFINITIVO (3 MODOS REALES)
+// =====================================================
 const systemPrompt = `
-Eres un simulador clínico tipo ECOE.
+Eres un simulador clínico avanzado tipo ECOE.
 
-----------------------------------------
-🚨 REGLA CRÍTICA (OBLIGATORIA)
-----------------------------------------
-- SOLO puedes usar información contenida en el CASO proporcionado.
-- PROHIBIDO inventar síntomas, antecedentes, pruebas o datos.
-- PROHIBIDO completar información ausente.
-- PROHIBIDO inferir datos no escritos explícitamente.
+Tu comportamiento depende del MODO en el que te encuentres:
 
-Si el alumno pregunta algo que NO está en el caso:
-👉 Responde como paciente:
-"No me han comentado nada sobre eso"
-"No lo recuerdo bien"
-"No me han hecho esa prueba"
+====================================================
+🧠 PRINCIPIOS DE FUNCIONAMIENTO
+====================================================
 
-----------------------------------------
-🧠 HISTORIAL
-----------------------------------------
-- El historial es válido y debe usarse
-- NO contradigas información previa
+- La información clínica debe basarse exclusivamente en el CASO proporcionado, aunque con margen interpretativo que concuerde con los datos del caso.
+- No debes añadir datos clínicos nuevos que no estén presentes en el caso.
+- No debes introducir pruebas, hallazgos o antecedentes no descritos.
 
-----------------------------------------
+⚠️ IMPORTANTE:
+Puedes expresar la información del caso de forma NATURAL y FLEXIBLE:
+- Reformular síntomas con lenguaje cotidiano
+- Explicar sensaciones con tus propias palabras
+- Variar la forma de describir lo mismo
+
+Ejemplo:
+- "dolor en fosa ilíaca derecha" → "me duele aquí abajo a la derecha"
+- "inicio periumbilical" → "empezó por el centro de la barriga"
+
+👉 Esto NO se considera inventar.
+
+Si el alumno pregunta algo que no está en el caso:
+- Responde de forma realista:
+  "No me han comentado nada de eso"
+  "No lo recuerdo bien"
+  "No me han hecho esa prueba"
+
+- El HISTORIAL forma parte del contexto clínico.
+- Mantén coherencia con todo lo dicho previamente.
+
+====================================================
 🎭 MODO PACIENTE
-----------------------------------------
-- Responde SOLO con información del ROLEPLAY
-- Lenguaje natural (paciente, no médico)
-- NO des diagnóstico
-- NO sugieras enfermedades
+====================================================
 
-----------------------------------------
+OBJETIVO: Simulación realista tipo ECOE
+
+- Eres el paciente del caso
+- Lenguaje NATURAL (NO médico)
+- Respuestas cortas–medias
+- SOLO das info si te preguntan
+- NO sugieres diagnóstico
+- NO ayudas activamente al alumno
+- NO interpretas pruebas
+- NO haces razonamiento clínico
+
+Estilo:
+- Humano, natural, creíble
+- Coherente con actitud del caso
+
+====================================================
 🧠 MODO TUTOR
-----------------------------------------
-- Evalúa el diagnóstico del alumno
-- Usa SOLO el FEEDBACK del caso
-- NO añadas conocimiento externo
-- Explica razonamiento clínico
+====================================================
 
-----------------------------------------
+OBJETIVO: Feedback clínico de alto nivel
+
+- Evalúas al alumno basándote en:
+  1. SU DIAGNÓSTICO
+  2. TODO EL HISTORIAL
+
+ESTRUCTURA OBLIGATORIA:
+
+1. 🧾 Juicio clínico global (correcto / parcial / incorrecto)
+2. 🧠 Razonamiento clínico
+3. 🔍 Qué ha hecho bien
+4. ❌ Errores cometidos
+5. ⚠️ Errores graves (si los hay)
+6. 💡 Qué le ha faltado preguntar/explorar
+
+REGLAS:
+- SOLO usa el apartado FEEDBACK del caso
+- NO añadas conocimiento externo
+- SÍ puedes reinterpretar el contenido
+- Feedback claro, directo y docente
+
+====================================================
 💊 MODO TRATAMIENTO
-----------------------------------------
-- Usa SOLO el apartado TRATAMIENTO
-- Explica manejo de forma estructurada
+====================================================
+
+OBJETIVO: Explicar manejo del caso
+
+ESTRUCTURA:
+1. 📌 Situación clínica
+2. 🧠 Indicación de tratamiento
+3. 💊 Tratamiento de elección
+4. 🔄 Alternativas
+5. 📈 Seguimiento / pronóstico
+
+REGLAS:
+- SOLO usar sección TRATAMIENTO
+- Explicación clara y ordenada
+- NO inventar nada
 `;
 
-// 🔹 CARGAR CASO
+// =====================================================
+// 📂 CARGAR CASO
+// =====================================================
 function cargarCaso(caso) {
   try {
     const filePath = path.join(process.cwd(), "data", "casos", `${caso}.md`);
@@ -59,7 +114,9 @@ function cargarCaso(caso) {
   }
 }
 
-// 🔹 EXTRAER SECCIÓN
+// =====================================================
+// ✂️ EXTRAER SECCIONES
+// =====================================================
 function extraerSeccion(markdown, seccion) {
   const regex = new RegExp(
     `##\\s*${seccion}\\b([\\s\\S]*?)(?=##\\s|$)`,
@@ -69,26 +126,70 @@ function extraerSeccion(markdown, seccion) {
   return match ? match[1].trim() : "";
 }
 
-// 🔥 DETECCIÓN DE DIAGNÓSTICO (MEJORADA)
-function detectarDiagnostico(mensaje) {
-  const texto = mensaje.toLowerCase().trim();
+// =====================================================
+// 🧠 DETECCIÓN INTELIGENTE DE DIAGNÓSTICO
+// =====================================================
+function detectarDiagnostico(texto) {
+  const t = texto.toLowerCase().trim();
 
-  if (texto.includes("?")) return false;
+  if (t.includes("?")) return false;
 
-  const patronesFuertes = [
+  const patrones = [
     "diagnóstico",
     "diagnostico",
+    "creo que",
     "se trata de",
-    "esto es",
-    "compatible con",
-    "sugiere",
+    "probablemente",
     "impresiona de",
+    "compatible con",
+    "lo más probable es",
+    "diría que",
+    "esto es un",
   ];
 
-  return patronesFuertes.some((p) => texto.includes(p));
+  return patrones.some((p) => t.includes(p));
 }
 
-// 🔹 HANDLER
+// =====================================================
+// 🔥 GENERAR PROMPT SEGÚN MODO
+// =====================================================
+function construirPrompt({ modo, contenido, historial, mensaje }) {
+  return `
+HISTORIAL DE LA CONVERSACIÓN:
+${historial || "Sin historial"}
+
+--------------------------------------------------
+
+CASO CLÍNICO (FUENTE ÚNICA):
+${contenido}
+
+--------------------------------------------------
+
+MODO ACTUAL:
+${modo}
+
+--------------------------------------------------
+
+MENSAJE DEL ALUMNO:
+${mensaje}
+
+--------------------------------------------------
+
+INSTRUCCIÓN FINAL:
+
+${
+  modo === "paciente"
+    ? "Responde como el paciente de forma realista, sin inventar información."
+    : modo === "tutor"
+    ? "Analiza el diagnóstico del alumno y proporciona feedback clínico completo usando el historial."
+    : "Explica el tratamiento del caso de forma estructurada."
+}
+`;
+}
+
+// =====================================================
+// 🚀 HANDLER PRINCIPAL
+// =====================================================
 export default async function handler(req, res) {
   try {
     const { mensaje, caso, modo, historial } = req.body;
@@ -110,7 +211,9 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Caso no encontrado" });
     }
 
-    // 🔹 EXTRAER CONTENIDO SEGÚN MODO
+    // =====================================================
+    // 🎯 EXTRAER CONTENIDO SEGÚN MODO
+    // =====================================================
     let contenido = "";
 
     if (modoActual === "paciente") {
@@ -123,37 +226,16 @@ export default async function handler(req, res) {
 
     if (!contenido) contenido = casoMarkdown;
 
-    const promptUsuario = `
-HISTORIAL:
-${historial || "Sin historial"}
+    const promptUsuario = construirPrompt({
+      modo: modoActual,
+      contenido,
+      historial,
+      mensaje,
+    });
 
-----------------------------------------
-
-CASO (ÚNICA FUENTE DE VERDAD):
-${contenido}
-
-----------------------------------------
-
-MODO:
-${modoActual}
-
-----------------------------------------
-
-MENSAJE DEL ALUMNO:
-${mensaje}
-
-----------------------------------------
-
-INSTRUCCIÓN:
-${
-  modoActual === "tutor"
-    ? "Evalúa el diagnóstico estrictamente con la información disponible."
-    : modoActual === "tratamiento"
-    ? "Explica el tratamiento del caso."
-    : "Responde como paciente sin inventar información."
-}
-`;
-
+    // =====================================================
+    // 🤖 LLAMADA A OPENAI
+    // =====================================================
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -166,7 +248,7 @@ ${
           { role: "system", content: systemPrompt },
           { role: "user", content: promptUsuario },
         ],
-        temperature: 0.2, // 🔥 MENOS CREATIVIDAD = MENOS ALUCINACIÓN
+        temperature: 0.15, // 🔥 ULTRA CONTROL
       }),
     });
 
@@ -174,13 +256,17 @@ ${
 
     const reply =
       data.choices?.[0]?.message?.content ||
-      "No estoy seguro de eso, no me han dado esa información.";
+      "No sabría decirle, no me han dado esa información.";
 
     return res.status(200).json({
       reply,
-      tipo: modoActual === "tutor" ? "tutor" : "paciente",
+      tipo:
+        modoActual === "tutor"
+          ? "tutor"
+          : modoActual === "tratamiento"
+          ? "tratamiento"
+          : "paciente",
     });
-
   } catch (error) {
     console.error("Error en API:", error);
     return res.status(500).json({ error: "Error interno del servidor" });
