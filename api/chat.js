@@ -2,113 +2,65 @@ import fs from "fs";
 import path from "path";
 
 // =====================================================
-// 🧠 PROMPT MAESTRO FINAL ULTRA ROBUSTO
+// 🧠 PROMPT MAESTRO DEFINITIVO
 // =====================================================
 const systemPrompt = `
 Eres un simulador clínico tipo ECOE.
 
-Tu comportamiento depende del MODO actual.
-
-====================================================
-🧠 PRIORIDADES (ORDEN OBLIGATORIO)
-====================================================
-
-1. CONVERSACIÓN PREVIA (historial)
-2. CASO CLÍNICO
-3. REGLAS
-
-👉 Si algo está en la conversación, debes recordarlo.
-👉 Está PROHIBIDO decir "no lo recuerdo" si aparece en el historial.
+PRIORIDADES:
+1. Conversación previa (historial)
+2. Información del caso (según modo)
+3. Reglas
 
 ====================================================
 🧠 MEMORIA
 ====================================================
-
-La conversación es REAL.
-
-Puedes y debes:
-- Recordar nombres (ej: "Fran")
-- Recordar lo que se ha dicho
-- Mantener coherencia
-
-IMPORTANTE:
-- Esto NO es información clínica
-- Es memoria conversacional
+- Debes recordar lo que el médico dice
+- Puedes recordar nombres y contexto
+- NUNCA digas "no lo recuerdo" si está en el historial
 
 ====================================================
-🧠 INFORMACIÓN CLÍNICA
+🧠 REGLAS CLÍNICAS
 ====================================================
-
-- SOLO usar datos del caso
-- NO inventar síntomas, pruebas o antecedentes
-- NO añadir información nueva
-
-✔️ Puedes:
-- Reformular lenguaje
-- Explicar con palabras naturales
-
-====================================================
-❗ PREGUNTAS FUERA DEL CASO
-====================================================
-
-Si NO está en el caso:
-- "No me han comentado nada de eso"
-- "No lo recuerdo bien"
-- "No me han hecho esa prueba"
-
-⚠️ EXCEPCIÓN:
-Si es sobre la conversación → SÍ responder
+- NO inventar datos clínicos
+- NO añadir síntomas nuevos
+- NO interpretar pruebas
+- Puedes usar lenguaje natural
 
 ====================================================
 🎭 MODO PACIENTE
 ====================================================
-
 - Eres el paciente
-- Lenguaje natural
-- No médico
-- No ayudas activamente
-- No razonas clínicamente
+- Lenguaje natural, no médico
+- SOLO respondes a lo que te preguntan
+- NO ayudas activamente
+- NO sugieres diagnóstico
 
-🧠 SOBRE DIAGNÓSTICOS:
+Diagnóstico del médico:
 - NO confirmas
 - NO niegas
-
-✔️ Respuestas:
-- "Ah vale doctor"
-- "¿Eso es grave?"
-- "¿Tiene solución?"
+- Respondes como paciente:
+  "Ah vale doctor"
+  "¿Eso es grave?"
 
 ====================================================
 🧠 MODO TUTOR
 ====================================================
+Evalúa usando:
+- Diagnóstico del alumno
+- Historial completo
 
-Evalúa al alumno usando:
-- Su diagnóstico
-- TODO el historial
-
-Estructura obligatoria:
-
-1. 🧾 Juicio global
-2. 🧠 Razonamiento
-3. 🔍 Aciertos
-4. ❌ Errores
-5. ⚠️ Errores graves
-6. 💡 Qué faltó
-
-- SOLO usar FEEDBACK del caso
-- NO usar conocimiento externo
+Estructura:
+1. Juicio
+2. Razonamiento
+3. Aciertos
+4. Errores
+5. Qué faltó
 
 ====================================================
 💊 MODO TRATAMIENTO
 ====================================================
-
-1. 📌 Situación clínica
-2. 🧠 Indicación
-3. 💊 Tratamiento
-4. 🔄 Alternativas
-5. 📈 Seguimiento
-
-- SOLO usar TRATAMIENTO del caso
+Explica de forma estructurada el tratamiento
 `;
 
 // =====================================================
@@ -137,64 +89,33 @@ function extraerSeccion(markdown, seccion) {
 }
 
 // =====================================================
-// 🧠 DETECCIÓN DE DIAGNÓSTICO
+// 🧹 LIMPIAR HISTORIAL
+// =====================================================
+function limpiarHistorial(historial) {
+  if (!historial) return "";
+
+  return historial
+    .replace(/null/g, "")
+    .replace(/undefined/g, "")
+    .trim();
+}
+
+// =====================================================
+// 🧠 DETECTAR DIAGNÓSTICO
 // =====================================================
 function detectarDiagnostico(texto) {
-  const t = texto.toLowerCase().trim();
-
-  if (t.includes("?")) return false;
-
-  const patrones = [
-    "diagnóstico",
-    "diagnostico",
-    "creo que",
-    "se trata de",
-    "probablemente",
-    "compatible con",
-    "lo más probable es",
-  ];
-
-  return patrones.some((p) => t.includes(p));
+  const t = texto.toLowerCase();
+  return (
+    t.includes("diagnóstico") ||
+    t.includes("diagnostico") ||
+    t.includes("creo que") ||
+    t.includes("se trata de") ||
+    t.includes("probablemente")
+  );
 }
 
 // =====================================================
-// 🧠 CONSTRUIR PROMPT
-// =====================================================
-function construirPrompt({ modo, contenido, historial, mensaje }) {
-  return `
-CONVERSACIÓN PREVIA:
-${historial || "Sin conversación previa"}
-
-----------------------------------------
-
-CASO:
-${contenido}
-
-----------------------------------------
-
-MODO:
-${modo}
-
-----------------------------------------
-
-MENSAJE DEL MÉDICO:
-${mensaje}
-
-----------------------------------------
-
-INSTRUCCIÓN FINAL:
-${
-  modo === "paciente"
-    ? "Responde como paciente realista usando la conversación."
-    : modo === "tutor"
-    ? "Da feedback clínico estructurado usando historial."
-    : "Explica el tratamiento de forma estructurada."
-}
-`;
-}
-
-// =====================================================
-// 🚀 HANDLER PRINCIPAL
+// 🚀 HANDLER
 // =====================================================
 export default async function handler(req, res) {
   try {
@@ -206,17 +127,18 @@ export default async function handler(req, res) {
 
     let modoActual = modo || "paciente";
 
-    // 🔥 AUTO CAMBIO A TUTOR
     if (modoActual === "paciente" && detectarDiagnostico(mensaje)) {
       modoActual = "tutor";
     }
 
     const casoMarkdown = cargarCaso(caso);
-
     if (!casoMarkdown) {
       return res.status(500).json({ error: "Caso no encontrado" });
     }
 
+    const historialLimpio = limpiarHistorial(historial);
+
+    // 🔥 EXTRAER SOLO LO NECESARIO
     let contenido = "";
 
     if (modoActual === "paciente") {
@@ -229,33 +151,63 @@ export default async function handler(req, res) {
 
     if (!contenido) contenido = casoMarkdown;
 
-    const promptUsuario = construirPrompt({
-      modo: modoActual,
-      contenido,
-      historial,
-      mensaje,
-    });
+    const promptUsuario = `
+CONVERSACIÓN:
+${historialLimpio}
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: \`Bearer \${process.env.OPENAI_API_KEY}\`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: promptUsuario },
-        ],
-        temperature: 0.2,
-      }),
-    });
+-----------------------
 
-    const data = await response.json();
+INFORMACIÓN DEL CASO:
+${contenido}
+
+-----------------------
+
+MENSAJE DEL MÉDICO:
+${mensaje}
+
+-----------------------
+
+Responde según el modo actual.
+`;
+
+    let data;
+
+    try {
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: \`Bearer \${process.env.OPENAI_API_KEY}\`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: promptUsuario },
+            ],
+            temperature: 0.2,
+          }),
+        }
+      );
+
+      data = await response.json();
+
+      if (!response.ok) {
+        console.error("OpenAI error:", data);
+        return res.status(500).json({
+          error: "Error en OpenAI",
+          detalle: data,
+        });
+      }
+    } catch (err) {
+      console.error("Error fetch:", err);
+      return res.status(500).json({ error: "Fallo conexión OpenAI" });
+    }
 
     const reply =
-      data.choices?.[0]?.message?.content ||
+      data?.choices?.[0]?.message?.content ||
       "No sabría decirle exactamente.";
 
     return res.status(200).json({
@@ -263,7 +215,7 @@ export default async function handler(req, res) {
       tipo: modoActual,
     });
   } catch (error) {
-    console.error("Error en API:", error);
+    console.error("Error general:", error);
     return res.status(500).json({ error: "Error interno del servidor" });
   }
 }
