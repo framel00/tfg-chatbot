@@ -1,48 +1,89 @@
 import fs from "fs";
 import path from "path";
 
+// =====================================================
+// 🧠 PROMPT
+// =====================================================
+const systemPrompt = `
+Eres un paciente en una simulación clínica tipo ECOE.
+
+- Responde de forma natural
+- Recuerda la conversación
+- No inventes datos clínicos
+`;
+
+// =====================================================
+// 📂 CARGAR CASO (🔥 FIX VERCEL)
+// =====================================================
+function cargarCaso(caso) {
+  try {
+    const filePath = path.resolve("data/casos", `${caso}.md`);
+    console.log("📂 Intentando cargar:", filePath);
+
+    if (!fs.existsSync(filePath)) {
+      console.error("❌ Archivo no existe");
+      return null;
+    }
+
+    return fs.readFileSync(filePath, "utf8");
+  } catch (error) {
+    console.error("❌ Error leyendo caso:", error);
+    return null;
+  }
+}
+
+// =====================================================
+// 🧹 LIMPIAR HISTORIAL
+// =====================================================
+function limpiarHistorial(historial) {
+  if (!historial) return "";
+
+  return historial
+    .replace(/null/g, "")
+    .replace(/undefined/g, "")
+    .trim();
+}
+
+// =====================================================
+// 🚀 HANDLER
+// =====================================================
 export default async function handler(req, res) {
   try {
+    console.log("📩 Request recibido");
+
     const { mensaje, caso, historial } = req.body;
 
-    console.log("📩 Request:", { mensaje, caso });
-
-    // =====================================================
-    // 🧪 TEST 1 — RESPUESTA SIMPLE (DEBUG)
-    // =====================================================
     if (!mensaje || !caso) {
       return res.status(400).json({ error: "Faltan parámetros" });
     }
 
-    // =====================================================
-    // 📂 TEST 2 — CARGAR ARCHIVO
-    // =====================================================
-    const filePath = path.join(process.cwd(), "data", "casos", `${caso}.md`);
+    const casoMarkdown = cargarCaso(caso);
 
-    console.log("📂 Ruta:", filePath);
-
-    let contenido = "";
-
-    try {
-      contenido = fs.readFileSync(filePath, "utf8");
-    } catch (err) {
-      console.error("❌ Error leyendo archivo:", err);
-
+    if (!casoMarkdown) {
       return res.status(500).json({
-        error: "No se pudo leer el caso",
-        ruta: filePath,
+        error: "Caso no encontrado",
+        caso,
       });
     }
 
-    // =====================================================
-    // 🤖 TEST 3 — OPENAI
-    // =====================================================
-    if (!process.env.OPENAI_API_KEY) {
-      return res.status(500).json({
-        error: "Falta API KEY",
-      });
-    }
+    const historialLimpio = limpiarHistorial(historial);
 
+    const promptUsuario = `
+CONVERSACIÓN:
+${historialLimpio}
+
+CASO:
+${casoMarkdown}
+
+MENSAJE:
+${mensaje}
+`;
+
+    console.log("🧠 Prompt construido");
+
+    // =====================================================
+    // 🔥 LLAMADA A OPENAI (SEGURA)
+    // =====================================================
     let data;
 
     try {
@@ -57,14 +98,8 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             model: "gpt-4o-mini",
             messages: [
-              {
-                role: "system",
-                content: "Eres un paciente.",
-              },
-              {
-                role: "user",
-                content: mensaje,
-              },
+              { role: "system", content: systemPrompt },
+              { role: "user", content: promptUsuario },
             ],
           }),
         }
@@ -72,19 +107,26 @@ export default async function handler(req, res) {
 
       data = await response.json();
 
-      console.log("🧠 OpenAI:", data);
+      console.log("✅ Respuesta OpenAI recibida");
+
+      if (!response.ok) {
+        console.error("❌ Error OpenAI:", data);
+        return res.status(500).json({
+          error: "Error OpenAI",
+          detalle: data,
+        });
+      }
     } catch (err) {
       console.error("❌ Error fetch:", err);
-
       return res.status(500).json({
-        error: "Error en OpenAI",
+        error: "Error conectando con OpenAI",
         detalle: err.message,
       });
     }
 
     const reply =
       data?.choices?.[0]?.message?.content ||
-      "No puedo responder ahora mismo.";
+      "No sabría decirle exactamente.";
 
     return res.status(200).json({
       reply,
