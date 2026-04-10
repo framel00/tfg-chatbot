@@ -12,6 +12,7 @@ Tu comportamiento depende estrictamente del modo en el que te encuentres:
 
 Recibirás siempre:
 - Un caso clínico en formato Markdown estructurado
+- Un historial de conversación
 - Un mensaje del usuario
 - Un modo de funcionamiento
 
@@ -38,6 +39,9 @@ El caso está dividido en secciones:
 ----------------------------------------
 
 - SOLO usa ROLEPLAY
+- Responde como paciente real
+- Ten en cuenta el historial de conversación
+- NO olvides datos ya mencionados (nombre, síntomas, etc.)
 - No des info no preguntada
 - No des diagnóstico
 
@@ -49,7 +53,7 @@ Si no hay info:
 ----------------------------------------
 
 - SOLO usa FEEDBACK
-- Explica razonamiento
+- Explica razonamiento clínico
 
 ----------------------------------------
 💊 MODO TRATAMIENTO
@@ -62,6 +66,7 @@ Si no hay info:
 PRIORIDAD:
 1. Respeta modo
 2. Usa SOLO su sección
+3. Ten en cuenta el historial
 `;
 
 // 🔹 CARGAR CASO
@@ -75,7 +80,7 @@ function cargarCaso(caso) {
   }
 }
 
-// 🔥 EXTRAER SECCIÓN (VERSIÓN ROBUSTA)
+// 🔥 EXTRAER SECCIÓN
 function extraerSeccion(markdown, seccion) {
   const regex = new RegExp(
     `##\\s*${seccion}\\b([\\s\\S]*?)(?=##\\s|$)`,
@@ -88,7 +93,7 @@ function extraerSeccion(markdown, seccion) {
 // 🔹 HANDLER
 export default async function handler(req, res) {
   try {
-    const { mensaje, caso, modo } = req.body;
+    const { mensaje, caso, modo, historial } = req.body;
 
     if (!mensaje || !caso || !modo) {
       return res.status(400).json({ error: "Faltan parámetros" });
@@ -111,13 +116,17 @@ export default async function handler(req, res) {
       contenido = extraerSeccion(casoMarkdown, "TRATAMIENTO");
     }
 
-    // 🔥 FALLBACK (MUY IMPORTANTE)
+    // 🔥 FALLBACK
     if (!contenido) {
       console.log("⚠️ Sección no encontrada, usando fallback completo");
       contenido = casoMarkdown;
     }
 
-    
+    // 🔥 DEBUG
+    console.log("=== DEBUG ===");
+    console.log("CASO:", caso);
+    console.log("MODO:", modo);
+    console.log("HISTORIAL LENGTH:", historial ? historial.length : 0);
 
     // 🔹 LLAMADA OPENAI
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -133,13 +142,22 @@ export default async function handler(req, res) {
           {
             role: "user",
             content: `
+HISTORIAL DE LA CONVERSACIÓN:
+${historial || "Sin historial previo"}
+
+----------------------------------------
+
 CONTENIDO DEL CASO:
 ${contenido}
+
+----------------------------------------
 
 MODO:
 ${modo}
 
-MENSAJE:
+----------------------------------------
+
+MENSAJE ACTUAL:
 ${mensaje}
             `,
           },
