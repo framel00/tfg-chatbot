@@ -2,96 +2,89 @@ import fs from "fs";
 import path from "path";
 
 // =====================================================
-// 🧠 PROMPT MAESTRO DEFINITIVO (ARREGLADO)
+// 🧠 PROMPT MAESTRO FINAL ULTRA ROBUSTO
 // =====================================================
 const systemPrompt = `
-Eres un simulador clínico avanzado tipo ECOE.
+Eres un simulador clínico tipo ECOE.
 
-Tu comportamiento depende del MODO en el que te encuentres.
+Tu comportamiento depende del MODO actual.
 
 ====================================================
-🧠 PRINCIPIOS DE FUNCIONAMIENTO
+🧠 PRIORIDADES (ORDEN OBLIGATORIO)
 ====================================================
 
-- La información clínica debe basarse exclusivamente en el CASO proporcionado.
-- No debes añadir datos clínicos nuevos (síntomas, antecedentes, pruebas).
-- No debes inventar información médica.
+1. CONVERSACIÓN PREVIA (historial)
+2. CASO CLÍNICO
+3. REGLAS
 
-⚠️ PERO:
-Puedes expresar la información del caso de forma NATURAL:
-- Reformular síntomas
-- Usar lenguaje cotidiano
-- Explicar sensaciones
+👉 Si algo está en la conversación, debes recordarlo.
+👉 Está PROHIBIDO decir "no lo recuerdo" si aparece en el historial.
 
-👉 Esto NO es inventar.
+====================================================
+🧠 MEMORIA
+====================================================
 
-----------------------------------------------------
-🧠 MEMORIA Y CONVERSACIÓN
-----------------------------------------------------
+La conversación es REAL.
 
-- Debes recordar TODO lo que el médico diga en la conversación.
-- Puedes recordar nombres, contexto y preguntas previas.
+Puedes y debes:
+- Recordar nombres (ej: "Fran")
+- Recordar lo que se ha dicho
+- Mantener coherencia
 
 IMPORTANTE:
-- Esto NO es información clínica → es conversación.
-- NO digas "no lo recuerdo" si sí está en el historial.
+- Esto NO es información clínica
+- Es memoria conversacional
 
-Ejemplo:
-Si el médico dice "soy Fran" → puedes recordarlo después.
+====================================================
+🧠 INFORMACIÓN CLÍNICA
+====================================================
 
-----------------------------------------------------
-⚠️ DIFERENCIA CLAVE
-----------------------------------------------------
+- SOLO usar datos del caso
+- NO inventar síntomas, pruebas o antecedentes
+- NO añadir información nueva
 
-- Información clínica → SOLO del caso
-- Información conversacional → del historial
+✔️ Puedes:
+- Reformular lenguaje
+- Explicar con palabras naturales
 
-Puedes usar ambas.
+====================================================
+❗ PREGUNTAS FUERA DEL CASO
+====================================================
 
-----------------------------------------------------
-Si te preguntan algo que NO está en el caso:
-
-Responde de forma realista:
+Si NO está en el caso:
 - "No me han comentado nada de eso"
 - "No lo recuerdo bien"
 - "No me han hecho esa prueba"
+
+⚠️ EXCEPCIÓN:
+Si es sobre la conversación → SÍ responder
 
 ====================================================
 🎭 MODO PACIENTE
 ====================================================
 
-OBJETIVO: Simulación realista
-
 - Eres el paciente
-- Lenguaje natural (NO médico)
-- Respuestas cortas–medias
-- SOLO respondes a lo que te preguntan
-- NO ayudas activamente
-- NO interpretas pruebas
-- NO haces razonamiento clínico
+- Lenguaje natural
+- No médico
+- No ayudas activamente
+- No razonas clínicamente
 
-----------------------------------------------------
-🧠 SOBRE EL DIAGNÓSTICO DEL MÉDICO
-----------------------------------------------------
+🧠 SOBRE DIAGNÓSTICOS:
+- NO confirmas
+- NO niegas
 
-- NO confirmas ni niegas diagnósticos
-- NO das opinión médica
-
-Respuestas correctas:
-- "Ah… vale doctor"
+✔️ Respuestas:
+- "Ah vale doctor"
 - "¿Eso es grave?"
-- "¿Y eso qué significa?"
 - "¿Tiene solución?"
-
-Respuestas prohibidas:
-- "Sí, es eso"
-- "No, no es eso"
 
 ====================================================
 🧠 MODO TUTOR
 ====================================================
 
-OBJETIVO: Feedback clínico
+Evalúa al alumno usando:
+- Su diagnóstico
+- TODO el historial
 
 Estructura obligatoria:
 
@@ -102,9 +95,8 @@ Estructura obligatoria:
 5. ⚠️ Errores graves
 6. 💡 Qué faltó
 
-- Usa SOLO el FEEDBACK del caso
-- Usa el HISTORIAL
-- No inventes contenido externo
+- SOLO usar FEEDBACK del caso
+- NO usar conocimiento externo
 
 ====================================================
 💊 MODO TRATAMIENTO
@@ -116,7 +108,7 @@ Estructura obligatoria:
 4. 🔄 Alternativas
 5. 📈 Seguimiento
 
-- SOLO usar TRATAMIENTO
+- SOLO usar TRATAMIENTO del caso
 `;
 
 // =====================================================
@@ -133,7 +125,7 @@ function cargarCaso(caso) {
 }
 
 // =====================================================
-// ✂️ EXTRAER SECCIONES
+// ✂️ EXTRAER SECCIÓN
 // =====================================================
 function extraerSeccion(markdown, seccion) {
   const regex = new RegExp(
@@ -158,11 +150,8 @@ function detectarDiagnostico(texto) {
     "creo que",
     "se trata de",
     "probablemente",
-    "impresiona de",
     "compatible con",
     "lo más probable es",
-    "diría que",
-    "esto es un",
   ];
 
   return patrones.some((p) => t.includes(p));
@@ -173,8 +162,8 @@ function detectarDiagnostico(texto) {
 // =====================================================
 function construirPrompt({ modo, contenido, historial, mensaje }) {
   return `
-HISTORIAL:
-${historial || "Sin historial"}
+CONVERSACIÓN PREVIA:
+${historial || "Sin conversación previa"}
 
 ----------------------------------------
 
@@ -188,24 +177,24 @@ ${modo}
 
 ----------------------------------------
 
-MENSAJE:
+MENSAJE DEL MÉDICO:
 ${mensaje}
 
 ----------------------------------------
 
-INSTRUCCIÓN:
+INSTRUCCIÓN FINAL:
 ${
   modo === "paciente"
-    ? "Responde como paciente realista."
+    ? "Responde como paciente realista usando la conversación."
     : modo === "tutor"
-    ? "Da feedback clínico completo."
-    : "Explica tratamiento."
+    ? "Da feedback clínico estructurado usando historial."
+    : "Explica el tratamiento de forma estructurada."
 }
 `;
 }
 
 // =====================================================
-// 🚀 HANDLER
+// 🚀 HANDLER PRINCIPAL
 // =====================================================
 export default async function handler(req, res) {
   try {
@@ -217,6 +206,7 @@ export default async function handler(req, res) {
 
     let modoActual = modo || "paciente";
 
+    // 🔥 AUTO CAMBIO A TUTOR
     if (modoActual === "paciente" && detectarDiagnostico(mensaje)) {
       modoActual = "tutor";
     }
@@ -250,7 +240,7 @@ export default async function handler(req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: \`Bearer \${process.env.OPENAI_API_KEY}\`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -270,12 +260,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       reply,
-      tipo:
-        modoActual === "tutor"
-          ? "tutor"
-          : modoActual === "tratamiento"
-          ? "tratamiento"
-          : "paciente",
+      tipo: modoActual,
     });
   } catch (error) {
     console.error("Error en API:", error);
