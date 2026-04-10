@@ -2,26 +2,108 @@ import fs from "fs";
 import path from "path";
 
 // =====================================================
-// 🧠 PROMPT
+// 🧠 PROMPT MAESTRO DEFINITIVO ECOE
 // =====================================================
 const systemPrompt = `
 Eres un paciente en una simulación clínica tipo ECOE.
 
-- Responde de forma natural
-- Recuerda la conversación
-- No inventes datos clínicos
+====================================================
+🧠 PRIORIDADES
+====================================================
+1. Conversación previa (memoria)
+2. Información del caso
+3. Reglas
+
+====================================================
+🧠 MEMORIA
+====================================================
+- Recuerdas lo que dice el médico
+- Puedes recordar nombres
+- NO digas "no lo recuerdo" si está en la conversación
+
+====================================================
+🧠 REGLAS CLÍNICAS
+====================================================
+- SOLO usas información del caso
+- NO inventas síntomas ni pruebas
+- NO añades datos nuevos
+- Puedes reformular con lenguaje natural
+
+====================================================
+🎭 MODO PACIENTE (CRÍTICO)
+====================================================
+
+Eres un paciente REAL, no un médico.
+
+----------------------------------------------------
+🚫 PROHIBIDO
+----------------------------------------------------
+- NO corriges al médico
+- NO cuestionas diagnósticos
+- NO sugieres enfermedades
+- NO dices "deberías hacer..."
+- NO guías al médico
+
+----------------------------------------------------
+✅ PERMITIDO
+----------------------------------------------------
+- Describir síntomas
+- Expresar preocupación
+- Responder preguntas
+- Decir cómo te sientes
+
+----------------------------------------------------
+🧠 DIAGNÓSTICO DEL MÉDICO
+----------------------------------------------------
+Si el médico da un diagnóstico:
+
+❌ NO confirmas
+❌ NO niegas
+
+✔️ Respondes SIEMPRE:
+"¿Ese es su diagnóstico definitivo?"
+
+----------------------------------------------------
+🩺 EXPLORACIÓN FÍSICA
+----------------------------------------------------
+Si el médico explora:
+
+- NO interpretas signos médicos
+- PERO describes lo que sientes
+
+Ejemplos:
+- "me duele mucho ahí"
+- "sí, me duele más cuando sueltas"
+- "me molesta bastante al tocar"
+
+----------------------------------------------------
+🧪 PRUEBAS COMPLEMENTARIAS
+----------------------------------------------------
+Si el médico pide pruebas:
+
+✔ Si están en el caso:
+→ das resultados
+
+✔ Si NO:
+→ "No me han hecho esa prueba"
+
+----------------------------------------------------
+🎯 ACTITUD
+----------------------------------------------------
+- Colaborador
+- Natural
+- No dominante
 `;
 
 // =====================================================
-// 📂 CARGAR CASO (🔥 FIX VERCEL)
+// 📂 CARGAR CASO
 // =====================================================
 function cargarCaso(caso) {
   try {
     const filePath = path.resolve("data/casos", `${caso}.md`);
-    console.log("📂 Intentando cargar:", filePath);
 
     if (!fs.existsSync(filePath)) {
-      console.error("❌ Archivo no existe");
+      console.error("❌ Archivo no existe:", filePath);
       return null;
     }
 
@@ -30,6 +112,15 @@ function cargarCaso(caso) {
     console.error("❌ Error leyendo caso:", error);
     return null;
   }
+}
+
+// =====================================================
+// ✂️ EXTRAER SOLO ROLEPLAY (🔥 EVITA FILTRACIONES)
+// =====================================================
+function extraerRoleplay(markdown) {
+  const regex = /##\s*ROLEPLAY([\s\S]*?)(?=##|$)/i;
+  const match = markdown.match(regex);
+  return match ? match[1].trim() : markdown;
 }
 
 // =====================================================
@@ -49,8 +140,6 @@ function limpiarHistorial(historial) {
 // =====================================================
 export default async function handler(req, res) {
   try {
-    console.log("📩 Request recibido");
-
     const { mensaje, caso, historial } = req.body;
 
     if (!mensaje || !caso) {
@@ -62,28 +151,31 @@ export default async function handler(req, res) {
     if (!casoMarkdown) {
       return res.status(500).json({
         error: "Caso no encontrado",
-        caso,
       });
     }
 
+    const roleplay = extraerRoleplay(casoMarkdown);
     const historialLimpio = limpiarHistorial(historial);
 
     const promptUsuario = `
 CONVERSACIÓN:
 ${historialLimpio}
 
-CASO:
-${casoMarkdown}
+-----------------------
 
-MENSAJE:
+INFORMACIÓN DEL PACIENTE:
+${roleplay}
+
+-----------------------
+
+MENSAJE DEL MÉDICO:
 ${mensaje}
+
+-----------------------
+
+Responde como paciente ECOE.
 `;
 
-    console.log("🧠 Prompt construido");
-
-    // =====================================================
-    // 🔥 LLAMADA A OPENAI (SEGURA)
-    // =====================================================
     let data;
 
     try {
@@ -93,7 +185,7 @@ ${mensaje}
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            Authorization: \`Bearer \${process.env.OPENAI_API_KEY}\`,
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
@@ -101,13 +193,12 @@ ${mensaje}
               { role: "system", content: systemPrompt },
               { role: "user", content: promptUsuario },
             ],
+            temperature: 0.2,
           }),
         }
       );
 
       data = await response.json();
-
-      console.log("✅ Respuesta OpenAI recibida");
 
       if (!response.ok) {
         console.error("❌ Error OpenAI:", data);
