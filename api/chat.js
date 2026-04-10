@@ -1,73 +1,49 @@
 import fs from "fs";
 import path from "path";
 
-// 🔹 PROMPT MAESTRO (CORREGIDO)
+// 🔹 PROMPT MAESTRO
 const systemPrompt = `
-Eres un simulador clínico avanzado diseñado para entrenamiento tipo ECOE.
+Eres un simulador clínico avanzado tipo ECOE.
 
-Tu comportamiento depende estrictamente del modo en el que te encuentres:
-- "paciente"
-- "tutor"
-- "tratamiento"
-
-Recibirás siempre:
-- Un caso clínico en formato Markdown estructurado
-- Un historial de conversación
-- Un mensaje del usuario
-- Un modo de funcionamiento
+MODOS:
+- paciente
+- tutor
+- tratamiento
 
 ----------------------------------------
-📚 ESTRUCTURA DEL CASO (MARKDOWN)
+🧠 REGLAS CLAVE
 ----------------------------------------
 
-El caso está dividido en secciones:
-
-## ROLEPLAY
-## FEEDBACK
-## TRATAMIENTO
-
-----------------------------------------
-🧠 REGLAS GENERALES
-----------------------------------------
-
-- NUNCA inventes información
-- El HISTORIAL de la conversación es información clínica válida
-- TODO lo dicho previamente debe recordarse (nombre, síntomas, contexto)
-- El historial tiene prioridad sobre el ROLEPLAY en datos conversacionales
-- Si algo no aparece ni en el caso ni en el historial:
-  → "No dispongo de esa información en este momento"
+- El HISTORIAL es información clínica válida
+- TODO lo dicho previamente debe recordarse
+- El historial tiene MÁS prioridad que el caso en datos conversacionales
+- NO reinicies conversación
+- NO pierdas contexto
 
 ----------------------------------------
 🎭 MODO PACIENTE
 ----------------------------------------
 
 - Usa ROLEPLAY como base
-- PERO integra SIEMPRE el historial de conversación
-- Recuerda datos previos del usuario (nombre, contexto)
-- Responde como paciente real, coherente y continuo
-- No reinicies la conversación
-- No des información no preguntada
+- Integra SIEMPRE el historial
+- Recuerda nombre, contexto y datos previos
+- Responde como paciente real
 - No des diagnóstico
 
 ----------------------------------------
 🧠 MODO TUTOR
 ----------------------------------------
 
-- SOLO usa FEEDBACK
+- Usa SOLO FEEDBACK
 - Explica razonamiento clínico
+- Corrige al alumno
 
 ----------------------------------------
 💊 MODO TRATAMIENTO
 ----------------------------------------
 
-- SOLO usa TRATAMIENTO
+- Usa SOLO TRATAMIENTO
 - Explica manejo clínico
-
-----------------------------------------
-PRIORIDAD:
-1. Historial de conversación
-2. Modo actual
-3. Contenido del caso
 `;
 
 // 🔹 CARGAR CASO
@@ -81,7 +57,7 @@ function cargarCaso(caso) {
   }
 }
 
-// 🔥 EXTRAER SECCIÓN
+// 🔹 EXTRAER SECCIÓN
 function extraerSeccion(markdown, seccion) {
   const regex = new RegExp(
     `##\\s*${seccion}\\b([\\s\\S]*?)(?=##\\s|$)`,
@@ -91,13 +67,102 @@ function extraerSeccion(markdown, seccion) {
   return match ? match[1].trim() : "";
 }
 
+// 🔥 DETECCIÓN INTELIGENTE DE DIAGNÓSTICO
+function detectarDiagnostico(mensaje) {
+  const texto = mensaje.toLowerCase().trim();
+
+  // ❌ preguntas → no diagnóstico
+  if (texto.includes("?")) return false;
+
+  const patronesPregunta = [
+    "puede ser",
+    "podria ser",
+    "podría ser",
+    "sería",
+    "es posible",
+  ];
+  if (patronesPregunta.some((p) => texto.includes(p))) return false;
+
+  // 🔥 patrones fuertes
+  const patronesFuertes = [
+    "diagnostico:",
+    "diagnóstico:",
+    "mi diagnostico es",
+    "mi diagnóstico es",
+    "el diagnostico es",
+    "el diagnóstico es",
+    "se trata de",
+    "esto es",
+    "corresponde a",
+  ];
+  if (patronesFuertes.some((p) => texto.includes(p))) return true;
+
+  // 🧠 patrones clínicos naturales
+  const patronesClinicos = [
+    "creo que es",
+    "probablemente es",
+    "sospecho",
+    "me cuadra",
+    "cuadra con",
+    "orienta a",
+    "compatible con",
+    "sugiere",
+    "impresiona de",
+    "podria tratarse de",
+    "podría tratarse de",
+  ];
+
+  if (patronesClinicos.some((p) => texto.includes(p))) {
+    if (texto.length > 15) return true;
+  }
+
+  // 🧠 mención directa de enfermedad
+  const palabrasDiagnostico = [
+    "infarto",
+    "iam",
+    "angina",
+    "insuficiencia",
+    "neumonia",
+    "neumonía",
+    "tromboembolismo",
+    "epoc",
+    "cancer",
+    "cáncer",
+    "pancreatitis",
+    "apendicitis",
+    "colecistitis",
+    "hepatitis",
+    "cirrosis",
+    "valvulopatia",
+    "valvulopatía",
+  ];
+
+  const mencionaDiagnostico = palabrasDiagnostico.some((d) =>
+    texto.includes(d)
+  );
+
+  if (mencionaDiagnostico && texto.split(" ").length > 3) {
+    return true;
+  }
+
+  return false;
+}
+
 // 🔹 HANDLER
 export default async function handler(req, res) {
   try {
     const { mensaje, caso, modo, historial } = req.body;
 
-    if (!mensaje || !caso || !modo) {
+    if (!mensaje || !caso) {
       return res.status(400).json({ error: "Faltan parámetros" });
+    }
+
+    // 🔥 CAMBIO AUTOMÁTICO A TUTOR
+    let modoActual = modo || "paciente";
+
+    if (modoActual === "paciente" && detectarDiagnostico(mensaje)) {
+      modoActual = "tutor";
+      console.log("🧠 Cambio automático a modo TUTOR");
     }
 
     const casoMarkdown = cargarCaso(caso);
@@ -106,30 +171,54 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "Caso no encontrado" });
     }
 
-    // 🔥 EXTRAER CONTENIDO SEGÚN MODO
+    // 🔹 EXTRAER CONTENIDO
     let contenido = "";
 
-    if (modo === "paciente") {
+    if (modoActual === "paciente") {
       contenido = extraerSeccion(casoMarkdown, "ROLEPLAY");
-    } else if (modo === "tutor") {
+    } else if (modoActual === "tutor") {
       contenido = extraerSeccion(casoMarkdown, "FEEDBACK");
-    } else if (modo === "tratamiento") {
+    } else if (modoActual === "tratamiento") {
       contenido = extraerSeccion(casoMarkdown, "TRATAMIENTO");
     }
 
-    // 🔥 FALLBACK
     if (!contenido) {
-      console.log("⚠️ Sección no encontrada, usando fallback completo");
       contenido = casoMarkdown;
     }
 
-    // 🔥 DEBUG
     console.log("=== DEBUG ===");
-    console.log("CASO:", caso);
-    console.log("MODO:", modo);
-    console.log("HISTORIAL LENGTH:", historial ? historial.length : 0);
+    console.log("MODO:", modoActual);
+    console.log("HISTORIAL LENGTH:", historial?.length);
 
-    // 🔹 LLAMADA OPENAI
+    const promptUsuario = `
+HISTORIAL:
+${historial || "Sin historial"}
+
+----------------------------------------
+
+CASO:
+${contenido}
+
+----------------------------------------
+
+MODO:
+${modoActual}
+
+----------------------------------------
+
+MENSAJE DEL ALUMNO:
+${mensaje}
+
+----------------------------------------
+
+INSTRUCCIÓN:
+${
+  modoActual === "tutor"
+    ? "Evalúa el diagnóstico del alumno, indica si es correcto o no y explica el razonamiento clínico."
+    : "Responde como paciente real."
+}
+`;
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -140,28 +229,7 @@ export default async function handler(req, res) {
         model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `
-HISTORIAL DE LA CONVERSACIÓN:
-${historial || "Sin historial previo"}
-
-----------------------------------------
-
-CONTENIDO DEL CASO:
-${contenido}
-
-----------------------------------------
-
-MODO:
-${modo}
-
-----------------------------------------
-
-MENSAJE ACTUAL:
-${mensaje}
-            `,
-          },
+          { role: "user", content: promptUsuario },
         ],
         temperature: 0.4,
       }),
@@ -169,13 +237,14 @@ ${mensaje}
 
     const data = await response.json();
 
-    console.log("OPENAI RESPONSE:", JSON.stringify(data, null, 2));
-
     const reply =
       data.choices?.[0]?.message?.content ||
       "Error generando respuesta.";
 
-    return res.status(200).json({ reply });
+    return res.status(200).json({
+      reply,
+      tipo: modoActual === "tutor" ? "tutor" : "paciente",
+    });
 
   } catch (error) {
     console.error("Error en API:", error);
