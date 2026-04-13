@@ -16,6 +16,16 @@ Se te dara la información COMPLETA de un caso clínico para que interactues con
 - NO conoces diagnósticos ni términos técnicos
 
 ━━━━━━━━━━━━━━━━━━━━━━━
+🎯 SÍNTOMA PRINCIPAL (MUY IMPORTANTE)
+━━━━━━━━━━━━━━━━━━━━━━━
+Debes identificar dentro del caso clínico cuál es tu síntoma principal.
+
+Ese síntoma es tu motivo de consulta y debes empezar por él.
+
+Si el médico pregunta:
+→ debes desarrollar ese síntoma progresivamente usando el caso.
+
+━━━━━━━━━━━━━━━━━━━━━━━
 🎭 INTERPRETACIÓN
 ━━━━━━━━━━━━━━━━━━━━━━━
 - Actúas como una persona real
@@ -54,11 +64,6 @@ Si el médico dice cosas como:
 - NO repitas la misma respuesta
 - Si el médico cambia la pregunta → tu respuesta debe cambiar
 
-Ejemplo:
-- "No me encuentro bien"
-- "Me duele la barriga"
-- "Me duele en la parte derecha"
-
 ━━━━━━━━━━━━━━━━━━━━━━━
 😐 ACTITUD
 ━━━━━━━━━━━━━━━━━━━━━━━
@@ -70,7 +75,7 @@ Ejemplo:
 ━━━━━━━━━━━━━━━━━━━━━━━
 - SOLO puedes usar la información del caso
 - NUNCA inventes datos fuera del caso
-- Puedes salirte del personaje si el usuario te pide informacion que está en el caso clínico dado, como si tuvieras una carpeta imaginaria y das lo que te pide.
+- Puedes salirte del personaje si el usuario te pide informacion que está en el caso clínico dado
 
 Si algo no está en el caso:
 → "Información no disponible como dato en el caso clínico"
@@ -105,7 +110,6 @@ Clasifica este mensaje clínico según lo que quiere decir el usuario:
 "${mensaje}"
 
 Detecta intención del usuario aunque sea indirecta.
-Evalua, si el usuario está proponiendo un diagnostico, tratamiento, sospecha etc.
 
 Responde SOLO:
 diagnostico
@@ -126,9 +130,7 @@ Responde SIEMPRE con:
 2. Justificación clínica
 3. Qué faltó
 4. Qué prueba faltó
-5. Feedback global del proceso diagnóstico del usuario
-
-Debes posicionarte claramente.
+5. Feedback global del proceso diagnóstico
 `;
 
 // =====================================================
@@ -143,9 +145,7 @@ Responde SIEMPRE con:
 2. Errores
 3. Tratamiento ideal
 4. Prioridad clínica
-5. Feedback global del tratamiento propuesto del usuario
-
-Evalúa primero, luego corrige.
+5. Feedback global
 `;
 
 // =====================================================
@@ -159,7 +159,6 @@ function cargarCaso(caso) {
 
 function limpiarHistorial(historial) {
   if (!historial) return "";
-
   return historial
     .replace(/null|undefined/g, "")
     .split("\n")
@@ -170,10 +169,7 @@ function limpiarHistorial(historial) {
 }
 
 function normalizarDetector(texto) {
-  return texto
-    .toLowerCase()
-    .replace(/[^\w]/g, "")
-    .trim();
+  return texto.toLowerCase().replace(/[^\w]/g, "").trim();
 }
 
 async function llamarOpenAI(messages, temperature = 0.3) {
@@ -185,7 +181,7 @@ async function llamarOpenAI(messages, temperature = 0.3) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-5.3-chat-latest",
+        model: "gpt-5.1",
         messages,
         temperature,
       }),
@@ -193,7 +189,7 @@ async function llamarOpenAI(messages, temperature = 0.3) {
 
     const data = await res.json();
     return data.choices?.[0]?.message?.content || "";
-  } catch (e) {
+  } catch {
     return "";
   }
 }
@@ -206,41 +202,29 @@ export default async function handler(req, res) {
     let { mensaje, caso, historial, modo } = req.body;
 
     mensaje = (mensaje || "").trim();
-
     const casoMD = cargarCaso(caso);
-    if (!casoMD) {
-      return res.status(500).json({ error: "Caso no encontrado" });
-    }
+    if (!casoMD) return res.status(500).json({ error: "Caso no encontrado" });
 
     const hist = limpiarHistorial(historial);
 
-    // =====================================================
-    // 🧠 FEEDBACK DIAGNÓSTICO
-    // =====================================================
+    // ================= FEEDBACK =================
     if (modo === "feedback") {
       const reply = await llamarOpenAI([
         { role: "system", content: systemFeedbackDiagnostico },
         { role: "user", content: `CASO:\n${casoMD}\n\nDIAGNÓSTICO:\n${mensaje}` },
       ]);
-
       return res.json({ reply, tipo: "feedback" });
     }
 
-    // =====================================================
-    // 🧠 FEEDBACK TRATAMIENTO
-    // =====================================================
     if (modo === "feedback_tratamiento") {
       const reply = await llamarOpenAI([
         { role: "system", content: systemFeedbackTratamiento },
         { role: "user", content: `CASO:\n${casoMD}\n\nTRATAMIENTO:\n${mensaje}` },
       ]);
-
       return res.json({ reply, tipo: "feedback_tratamiento" });
     }
 
-    // =====================================================
-    // 🧠 DETECTOR
-    // =====================================================
+    // ================= DETECTOR =================
     let tipo = "paciente";
 
     const detRaw = await llamarOpenAI([
@@ -251,40 +235,39 @@ export default async function handler(req, res) {
 
     if (det === "diagnostico") tipo = "diagnostico";
     else if (det === "tratamiento") tipo = "tratamiento";
-    else if (det === "sospecha") tipo = "sospecha";
-
-    if (!detRaw) tipo = "paciente";
 
     if (tipo === "diagnostico" || tipo === "tratamiento") {
       return res.json({ reply: "", tipo });
     }
 
-    // =====================================================
-    // 🧠 PACIENTE
-    // =====================================================
+    // ================= PACIENTE =================
     const esInicio = !hist;
 
     const promptUsuario = esInicio
       ? `
-CASO:
+CASO CLÍNICO COMPLETO (uso interno):
 ${casoMD}
 
-Empieza la conversación como paciente diciendo tu motivo de consulta.
+INSTRUCCIONES:
+- Identifica el síntoma principal
+- Empieza por ese síntoma como motivo de consulta
+- No des todo de golpe
 `
       : `
 CONVERSACIÓN:
 ${hist}
 
-CASO:
+CASO CLÍNICO COMPLETO:
 ${casoMD}
 
 MÉDICO:
 ${mensaje}
 
-IMPORTANTE:
+INSTRUCCIONES:
 - Avanza en la información
-- No repitas respuestas anteriores
-- Aporta un dato nuevo
+- No repitas
+- Aporta un dato nuevo del caso
+- Sé más concreto progresivamente
 `;
 
     let reply = await llamarOpenAI([
@@ -292,9 +275,8 @@ IMPORTANTE:
       { role: "user", content: promptUsuario },
     ]);
 
-    // 🔥 fallback mejorado (anti-bucle)
     if (!reply || reply.trim() === "") {
-      reply = "Pues… no sé muy bien cómo explicarlo, pero no me encuentro bien…";
+      reply = "Pues… no me encuentro bien…";
     }
 
     return res.json({ reply, tipo });
