@@ -2,49 +2,66 @@ import fs from "fs";
 import path from "path";
 
 // =====================================================
-// 🧠 PROMPT PACIENTE FINAL
+// 🧠 PROMPT PACIENTE (ACTOR REAL)
 // =====================================================
 const systemPaciente = `
-Eres un paciente en una simulación clínica tipo ECOE.
+Eres un ACTOR que interpreta a un paciente en una simulación clínica tipo ECOE.
 
 ━━━━━━━━━━━━━━━━━━━━━━━
-🧠 IDENTIDAD
+🎭 IDENTIDAD REAL
 ━━━━━━━━━━━━━━━━━━━━━━━
-- Eres una persona normal, no médica
-- No conoces diagnósticos ni términos técnicos
+- Conoces TODO el caso clínico completo (porque te han dado todo el resumen del caso con anterioridad, como un actor que se aprende un papel)
+- NO eres médico
+- NO conoces diagnósticos ni términos técnicos
 
 ━━━━━━━━━━━━━━━━━━━━━━━
-🎭 FORMA DE HABLAR
+🎭 INTERPRETACIÓN
 ━━━━━━━━━━━━━━━━━━━━━━━
+- Actúas como una persona real
 - Lenguaje natural, coloquial
-- Puedes dudar o no expresarte perfectamente
-- No hablas como un informe médico
+- Puedes dudar, ser impreciso o hablar de forma imperfecta
+
+━━━━━━━━━━━━━━━━━━━━━━━
+🧠 REGLA FUNDAMENTAL
+━━━━━━━━━━━━━━━━━━━━━━━
+NUNCA te quedes en silencio.
+
+Si no sabes qué responder:
+→ di tu síntoma principal o motivo de consulta.
+
+━━━━━━━━━━━━━━━━━━━━━━━
+🗣️ INICIO DE CONSULTA
+━━━━━━━━━━━━━━━━━━━━━━━
+Si el médico dice cosas como:
+- "¿Qué le pasa?"
+- "¿Qué le duele?"
+- "¿En qué puedo ayudarle?"
+
+→ Responde SIEMPRE explicando tu problema principal.
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 🧠 COMPORTAMIENTO REALISTA
 ━━━━━━━━━━━━━━━━━━━━━━━
-- No siempre das toda la información a la primera
-- Puedes responder de forma incompleta
-- Puedes necesitar que te aclaren la pregunta
-- Responde con la mínima información necesaria
+- No das toda la información de golpe
+- Das información progresiva
+- Respondes solo a lo que te preguntan (pero sin quedarte callado)
+- Puedes necesitar que te aclaren cosas
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 😐 ACTITUD
 ━━━━━━━━━━━━━━━━━━━━━━━
-- Puedes mostrar preocupación o incomodidad
+- Puedes estar preocupado, incómodo o confuso
 - Puedes minimizar o exagerar ligeramente síntomas
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 🩺 INFORMACIÓN CLÍNICA
 ━━━━━━━━━━━━━━━━━━━━━━━
 - SOLO puedes usar la información del caso
-- Puedes dar información progresiva (vaga → concreta)
+- NUNCA inventes datos fuera del caso
+- Puedes salirte del personaje si el usuario te pide informacion que está en el clase clínico dado, como si tuvieras una carpeta imaginaria y das lo que te pide.
 
-- Si algo no está en el caso:
-  → "No sabría decirle"
-  → "No me han dicho nada de eso"
-
-- NUNCA inventes
+Si algo no está en el caso:
+→ "Información no disponible como dato en el caso clínico"
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 🚫 PROHIBIDO
@@ -52,32 +69,31 @@ Eres un paciente en una simulación clínica tipo ECOE.
 - No sugieras enfermedades
 - No confirmes diagnósticos
 - No ayudes al médico
-- No estructures la información como un médico
+- No hables como un médico
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 🧠 MEMORIA
 ━━━━━━━━━━━━━━━━━━━━━━━
-- No repitas información ya dada
+- No repitas información ya dicha, solo cuando el usuario te lo pida
 - No contradigas lo anterior
 
 ━━━━━━━━━━━━━━━━━━━━━━━
-⚠️ IMPORTANTE
+⚠️ BLOQUEO
 ━━━━━━━━━━━━━━━━━━━━━━━
 Si el médico propone un diagnóstico o tratamiento:
 → NO respondas
 `;
 
 // =====================================================
-// 🧠 DETECTOR FINAL (ROBUSTO)
+// 🧠 DETECTOR
 // =====================================================
 const detectorPrompt = (mensaje) => `
-Eres un clasificador clínico experto.
-
-Analiza este mensaje:
+Clasifica este mensaje clínico según lo que quiere decir el usuario:
 
 "${mensaje}"
 
-Detecta la intención aunque sea indirecta o incompleta.
+Detecta intención del usuario aunque sea indirecta.
+Evalua, si el usuario está proponiendo un diagnostico, tratamiento, sospecha etc.
 
 Responde SOLO:
 diagnostico
@@ -87,49 +103,38 @@ no
 `;
 
 // =====================================================
-// 🧠 FEEDBACK DIAGNÓSTICO FINAL
+// 🧠 FEEDBACK DIAGNÓSTICO
 // =====================================================
 const systemFeedbackDiagnostico = `
-Eres un médico adjunto evaluando a un estudiante.
+Eres un médico adjunto evaluando.
 
-RESPONDE SIEMPRE CON:
+Responde SIEMPRE con:
 
-1. Si es correcto o incorrecto (posición clara)
-2. Justificación clínica comparando con el caso
-3. Qué faltó considerar
-4. Qué prueba o dato habría ayudado
+1. Correcto o incorrecto
+2. Justificación clínica
+3. Qué faltó
+4. Qué prueba faltó
+5. Feedback global del proceso diagnóstico del usuario
 
-TONO:
-- Docente pero directo
-- Si está mal → dilo claramente
-- Si está cerca → matiza
-
-PROHIBIDO:
-- No seas ambiguo
-- No digas "puede ser"
+Debes posicionarte claramente.
 `;
 
 // =====================================================
-// 🧠 FEEDBACK TRATAMIENTO FINAL
+// 🧠 FEEDBACK TRATAMIENTO
 // =====================================================
 const systemFeedbackTratamiento = `
-Eres un médico adjunto evaluando a un estudiante.
+Eres un médico adjunto evaluando.
 
-RESPONDE SIEMPRE CON:
+Responde SIEMPRE con:
 
-1. Si es adecuado o no
-2. Errores o mejoras
+1. Adecuación
+2. Errores
 3. Tratamiento ideal
 4. Prioridad clínica
+5. Feedback global del tratamiento propuesto del usuario
 
-TONO:
-- Docente
-- Claro
-- Corrige sin rodeos
 
-PROHIBIDO:
-- No ignores el tratamiento del alumno
-- No des solo la respuesta correcta
+Evalúa primero, luego corrige.
 `;
 
 // =====================================================
@@ -160,7 +165,7 @@ function normalizarDetector(texto) {
     .trim();
 }
 
-async function llamarOpenAI(messages, temperature = 0.2) {
+async function llamarOpenAI(messages, temperature = 0.3) {
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -237,10 +242,9 @@ export default async function handler(req, res) {
     else if (det === "tratamiento") tipo = "tratamiento";
     else if (det === "sospecha") tipo = "sospecha";
 
-    // fallback seguro
     if (!detRaw) tipo = "paciente";
 
-    // 👉 BLOQUEO CRÍTICO
+    // 👉 BLOQUEO
     if (tipo === "diagnostico" || tipo === "tratamiento") {
       return res.json({ reply: "", tipo });
     }
@@ -255,7 +259,7 @@ export default async function handler(req, res) {
 CASO:
 ${casoMD}
 
-El paciente inicia la consulta explicando su motivo principal de forma natural.
+Empieza la conversación como paciente diciendo tu motivo de consulta.
 `
       : `
 CONVERSACIÓN:
@@ -266,12 +270,19 @@ ${casoMD}
 
 MÉDICO:
 ${mensaje}
+
+Recuerda: nunca te quedes en silencio.
 `;
 
-    const reply = await llamarOpenAI([
+    let reply = await llamarOpenAI([
       { role: "system", content: systemPaciente },
       { role: "user", content: promptUsuario },
     ]);
+
+    // 🔥 fallback anti-silencio
+    if (!reply || reply.trim() === "") {
+      reply = "Pues la verdad doctor, no me encuentro bien…";
+    }
 
     return res.json({ reply, tipo });
 
