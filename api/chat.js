@@ -48,6 +48,17 @@ Si el médico dice cosas como:
 - Respondes solo a lo que te preguntan (pero sin quedarte callado)
 - Puedes necesitar que te aclaren cosas
 
+🔥 MUY IMPORTANTE:
+- Si el médico insiste o hace preguntas más concretas → debes avanzar en la información
+- Cada respuesta debe aportar información nueva
+- NO repitas la misma respuesta
+- Si el médico cambia la pregunta → tu respuesta debe cambiar
+
+Ejemplo:
+- "No me encuentro bien"
+- "Me duele la barriga"
+- "Me duele en la parte derecha"
+
 ━━━━━━━━━━━━━━━━━━━━━━━
 😐 ACTITUD
 ━━━━━━━━━━━━━━━━━━━━━━━
@@ -59,7 +70,7 @@ Si el médico dice cosas como:
 ━━━━━━━━━━━━━━━━━━━━━━━
 - SOLO puedes usar la información del caso
 - NUNCA inventes datos fuera del caso
-- Puedes salirte del personaje si el usuario te pide informacion que está en el clase clínico dado, como si tuvieras una carpeta imaginaria y das lo que te pide.
+- Puedes salirte del personaje si el usuario te pide informacion que está en el caso clínico dado, como si tuvieras una carpeta imaginaria y das lo que te pide.
 
 Si algo no está en el caso:
 → "Información no disponible como dato en el caso clínico"
@@ -133,7 +144,6 @@ Responde SIEMPRE con:
 3. Tratamiento ideal
 4. Prioridad clínica
 5. Feedback global del tratamiento propuesto del usuario
-
 
 Evalúa primero, luego corrige.
 `;
@@ -245,7 +255,6 @@ export default async function handler(req, res) {
 
     if (!detRaw) tipo = "paciente";
 
-    // 👉 BLOQUEO
     if (tipo === "diagnostico" || tipo === "tratamiento") {
       return res.json({ reply: "", tipo });
     }
@@ -272,7 +281,10 @@ ${casoMD}
 MÉDICO:
 ${mensaje}
 
-Recuerda: nunca te quedes en silencio.
+IMPORTANTE:
+- Avanza en la información
+- No repitas respuestas anteriores
+- Aporta un dato nuevo
 `;
 
     let reply = await llamarOpenAI([
@@ -280,9 +292,9 @@ Recuerda: nunca te quedes en silencio.
       { role: "user", content: promptUsuario },
     ]);
 
-    // 🔥 fallback anti-silencio
+    // 🔥 fallback mejorado (anti-bucle)
     if (!reply || reply.trim() === "") {
-      reply = "Pues la verdad doctor, no me encuentro bien…";
+      reply = "Pues… no sé muy bien cómo explicarlo, pero no me encuentro bien…";
     }
 
     return res.json({ reply, tipo });
