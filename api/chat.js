@@ -2,125 +2,184 @@ import fs from "fs";
 import path from "path";
 
 // =====================================================
-// 🧠 PROMPT MAESTRO ECOE (VERSIÓN FINAL)
+// 🧠 PROMPT PACIENTE FINAL
 // =====================================================
-const systemPrompt = `
+const systemPaciente = `
 Eres un paciente en una simulación clínica tipo ECOE.
 
-====================================================
+━━━━━━━━━━━━━━━━━━━━━━━
 🧠 IDENTIDAD
-====================================================
-- Eres un paciente, NO un asistente
-- NO ayudas al médico
-- NO haces razonamiento clínico
-- NO das diagnósticos
+━━━━━━━━━━━━━━━━━━━━━━━
+- Eres una persona normal, no médica
+- No conoces diagnósticos ni términos técnicos
 
-====================================================
-🎭 COMPORTAMIENTO
-====================================================
-- Lenguaje natural (no técnico)
-- Respuestas cortas o medias
-- SOLO respondes a lo que te preguntan
-- No tomas iniciativa
+━━━━━━━━━━━━━━━━━━━━━━━
+🎭 FORMA DE HABLAR
+━━━━━━━━━━━━━━━━━━━━━━━
+- Lenguaje natural, coloquial
+- Puedes dudar o no expresarte perfectamente
+- No hablas como un informe médico
 
-====================================================
+━━━━━━━━━━━━━━━━━━━━━━━
+🧠 COMPORTAMIENTO REALISTA
+━━━━━━━━━━━━━━━━━━━━━━━
+- No siempre das toda la información a la primera
+- Puedes responder de forma incompleta
+- Puedes necesitar que te aclaren la pregunta
+- Responde con la mínima información necesaria
+
+━━━━━━━━━━━━━━━━━━━━━━━
+😐 ACTITUD
+━━━━━━━━━━━━━━━━━━━━━━━
+- Puedes mostrar preocupación o incomodidad
+- Puedes minimizar o exagerar ligeramente síntomas
+
+━━━━━━━━━━━━━━━━━━━━━━━
+🩺 INFORMACIÓN CLÍNICA
+━━━━━━━━━━━━━━━━━━━━━━━
+- SOLO puedes usar la información del caso
+- Puedes dar información progresiva (vaga → concreta)
+
+- Si algo no está en el caso:
+  → "No sabría decirle"
+  → "No me han dicho nada de eso"
+
+- NUNCA inventes
+
+━━━━━━━━━━━━━━━━━━━━━━━
 🚫 PROHIBIDO
-====================================================
-- NO digas "¿en qué puedo ayudarte?"
-- NO digas "estoy aquí para ayudarte"
-- NO sugieras enfermedades
-- NO corrijas al médico
-- NO guíes la consulta
+━━━━━━━━━━━━━━━━━━━━━━━
+- No sugieras enfermedades
+- No confirmes diagnósticos
+- No ayudes al médico
+- No estructures la información como un médico
 
-====================================================
+━━━━━━━━━━━━━━━━━━━━━━━
 🧠 MEMORIA
-====================================================
-- Recuerdas lo que dice el médico
-- Puedes recordar nombres
-- Nunca digas "no lo recuerdo" si aparece en la conversación
+━━━━━━━━━━━━━━━━━━━━━━━
+- No repitas información ya dada
+- No contradigas lo anterior
 
-====================================================
-🧠 INFORMACIÓN CLÍNICA
-====================================================
-- SOLO puedes usar información del caso
-- NO inventes síntomas, pruebas o antecedentes
-
-====================================================
-🧠 DIAGNÓSTICO
-====================================================
-Si el médico dice un diagnóstico:
-
-👉 SIEMPRE respondes:
-"¿Ese es su diagnóstico definitivo?"
-
-NO confirmas ni niegas
-
-====================================================
-🩺 EXPLORACIÓN FÍSICA
-====================================================
-Si el médico explora:
-
-- Describe lo que sientes
-- Ejemplos:
-  "me duele mucho ahí"
-  "me molesta bastante al tocar"
-  "sí, me duele más cuando sueltas"
-
-NO interpretas signos médicos
-
-====================================================
-🧪 PRUEBAS COMPLEMENTARIAS
-====================================================
-- Si existen en el caso → das resultados
-- Si NO → "No me han hecho esa prueba"
-
-====================================================
-🎯 ACTITUD
-====================================================
-- Colaborador
-- Natural
-- No dominante
+━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ IMPORTANTE
+━━━━━━━━━━━━━━━━━━━━━━━
+Si el médico propone un diagnóstico o tratamiento:
+→ NO respondas
 `;
 
 // =====================================================
-// 📂 EXTRAER SOLO ROLEPLAY (EVITA FILTRACIONES)
+// 🧠 DETECTOR FINAL (ROBUSTO)
 // =====================================================
-function extraerRoleplay(markdown) {
-  const regex = /##\s*ROLEPLAY([\s\S]*?)(?=##|$)/i;
-  const match = markdown.match(regex);
-  return match ? match[1].trim() : markdown;
-}
+const detectorPrompt = (mensaje) => `
+Eres un clasificador clínico experto.
+
+Analiza este mensaje:
+
+"${mensaje}"
+
+Detecta la intención aunque sea indirecta o incompleta.
+
+Responde SOLO:
+diagnostico
+tratamiento
+sospecha
+no
+`;
 
 // =====================================================
-// 📂 CARGAR CASO
+// 🧠 FEEDBACK DIAGNÓSTICO FINAL
+// =====================================================
+const systemFeedbackDiagnostico = `
+Eres un médico adjunto evaluando a un estudiante.
+
+RESPONDE SIEMPRE CON:
+
+1. Si es correcto o incorrecto (posición clara)
+2. Justificación clínica comparando con el caso
+3. Qué faltó considerar
+4. Qué prueba o dato habría ayudado
+
+TONO:
+- Docente pero directo
+- Si está mal → dilo claramente
+- Si está cerca → matiza
+
+PROHIBIDO:
+- No seas ambiguo
+- No digas "puede ser"
+`;
+
+// =====================================================
+// 🧠 FEEDBACK TRATAMIENTO FINAL
+// =====================================================
+const systemFeedbackTratamiento = `
+Eres un médico adjunto evaluando a un estudiante.
+
+RESPONDE SIEMPRE CON:
+
+1. Si es adecuado o no
+2. Errores o mejoras
+3. Tratamiento ideal
+4. Prioridad clínica
+
+TONO:
+- Docente
+- Claro
+- Corrige sin rodeos
+
+PROHIBIDO:
+- No ignores el tratamiento del alumno
+- No des solo la respuesta correcta
+`;
+
+// =====================================================
+// 📂 FUNCIONES
 // =====================================================
 function cargarCaso(caso) {
-  try {
-    const filePath = path.join(process.cwd(), "data", "casos", `${caso}.md`);
-    console.log("📂 Ruta:", filePath);
-
-    if (!fs.existsSync(filePath)) {
-      console.error("❌ Archivo no existe");
-      return null;
-    }
-
-    return fs.readFileSync(filePath, "utf8");
-  } catch (error) {
-    console.error("❌ Error leyendo caso:", error);
-    return null;
-  }
+  const filePath = path.join(process.cwd(), "data/casos", `${caso}.md`);
+  if (!fs.existsSync(filePath)) return null;
+  return fs.readFileSync(filePath, "utf8");
 }
 
-// =====================================================
-// 🧹 LIMPIAR HISTORIAL
-// =====================================================
 function limpiarHistorial(historial) {
   if (!historial) return "";
 
   return historial
-    .replace(/null/g, "")
-    .replace(/undefined/g, "")
+    .replace(/null|undefined/g, "")
+    .split("\n")
+    .map(l => l.trim())
+    .filter(Boolean)
+    .slice(-12)
+    .join("\n");
+}
+
+function normalizarDetector(texto) {
+  return texto
+    .toLowerCase()
+    .replace(/[^\w]/g, "")
     .trim();
+}
+
+async function llamarOpenAI(messages, temperature = 0.2) {
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-5.3-chat-latest",
+        messages,
+        temperature,
+      }),
+    });
+
+    const data = await res.json();
+    return data.choices?.[0]?.message?.content || "";
+  } catch (e) {
+    return "";
+  }
 }
 
 // =====================================================
@@ -128,108 +187,95 @@ function limpiarHistorial(historial) {
 // =====================================================
 export default async function handler(req, res) {
   try {
-    console.log("📩 Request recibido");
+    let { mensaje, caso, historial, modo } = req.body;
 
-    const { mensaje, caso, historial } = req.body;
+    mensaje = (mensaje || "").trim();
 
-    if (!mensaje || !caso) {
-      return res.status(400).json({ error: "Faltan parámetros" });
+    const casoMD = cargarCaso(caso);
+    if (!casoMD) {
+      return res.status(500).json({ error: "Caso no encontrado" });
     }
 
-    const casoMarkdown = cargarCaso(caso);
+    const hist = limpiarHistorial(historial);
 
-    if (!casoMarkdown) {
-      return res.status(500).json({
-        error: "Caso no encontrado",
-        caso,
-      });
+    // =====================================================
+    // 🧠 FEEDBACK DIAGNÓSTICO
+    // =====================================================
+    if (modo === "feedback") {
+      const reply = await llamarOpenAI([
+        { role: "system", content: systemFeedbackDiagnostico },
+        { role: "user", content: `CASO:\n${casoMD}\n\nDIAGNÓSTICO:\n${mensaje}` },
+      ]);
+
+      return res.json({ reply, tipo: "feedback" });
     }
 
-    const roleplay = extraerRoleplay(casoMarkdown);
-    const historialLimpio = limpiarHistorial(historial);
+    // =====================================================
+    // 🧠 FEEDBACK TRATAMIENTO
+    // =====================================================
+    if (modo === "feedback_tratamiento") {
+      const reply = await llamarOpenAI([
+        { role: "system", content: systemFeedbackTratamiento },
+        { role: "user", content: `CASO:\n${casoMD}\n\nTRATAMIENTO:\n${mensaje}` },
+      ]);
 
-    const promptUsuario = `
+      return res.json({ reply, tipo: "feedback_tratamiento" });
+    }
+
+    // =====================================================
+    // 🧠 DETECTOR
+    // =====================================================
+    let tipo = "paciente";
+
+    const detRaw = await llamarOpenAI([
+      { role: "system", content: detectorPrompt(mensaje) },
+    ]);
+
+    const det = normalizarDetector(detRaw);
+
+    if (det === "diagnostico") tipo = "diagnostico";
+    else if (det === "tratamiento") tipo = "tratamiento";
+    else if (det === "sospecha") tipo = "sospecha";
+
+    // fallback seguro
+    if (!detRaw) tipo = "paciente";
+
+    // 👉 BLOQUEO CRÍTICO
+    if (tipo === "diagnostico" || tipo === "tratamiento") {
+      return res.json({ reply: "", tipo });
+    }
+
+    // =====================================================
+    // 🧠 PACIENTE
+    // =====================================================
+    const esInicio = !hist;
+
+    const promptUsuario = esInicio
+      ? `
+CASO:
+${casoMD}
+
+El paciente inicia la consulta explicando su motivo principal de forma natural.
+`
+      : `
 CONVERSACIÓN:
-${historialLimpio}
+${hist}
 
------------------------
+CASO:
+${casoMD}
 
-INFORMACIÓN DEL PACIENTE:
-${roleplay}
-
------------------------
-
-MENSAJE DEL MÉDICO:
+MÉDICO:
 ${mensaje}
-
------------------------
-
-Responde como paciente ECOE real.
 `;
 
-    console.log("🧠 Prompt construido");
+    const reply = await llamarOpenAI([
+      { role: "system", content: systemPaciente },
+      { role: "user", content: promptUsuario },
+    ]);
 
-    let data;
+    return res.json({ reply, tipo });
 
-    try {
-      const response = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: promptUsuario },
-            ],
-            temperature: 0.2,
-          }),
-        }
-      );
-
-      data = await response.json();
-
-      if (!response.ok) {
-        console.error("❌ Error OpenAI:", data);
-        return res.status(500).json({
-          error: "Error OpenAI",
-          detalle: data,
-        });
-      }
-    } catch (err) {
-      console.error("❌ Error fetch:", err);
-      return res.status(500).json({
-        error: "Error conectando con OpenAI",
-        detalle: err.message,
-      });
-    }
-
-    if (!data || !data.choices) {
-      console.error("❌ Respuesta inválida:", data);
-      return res.status(500).json({
-        error: "Respuesta inválida de OpenAI",
-        detalle: data,
-      });
-    }
-
-    const reply =
-      data.choices[0]?.message?.content ||
-      "No sabría decirle exactamente.";
-
-    return res.status(200).json({
-      reply,
-      tipo: "paciente",
-    });
-  } catch (error) {
-    console.error("❌ ERROR GENERAL:", error.stack);
-
-    return res.status(500).json({
-      error: "Error interno",
-      detalle: error.message,
-    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
   }
 }
