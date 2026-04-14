@@ -151,7 +151,7 @@ Si el médico da diagnóstico o tratamiento:
 // 🩺 FEEDBACK DIAGNÓSTICO
 // =====================================================
 const promptFeedbackDiagnostico = (casoMD, respuesta) => `
-Eres un médico adjunto evaluando a un alumno de medicina, como si fueras un tutor socrático.
+Eres un médico adjunto evaluando a un alumno de medicina.
 
 CASO:
 ${casoMD}
@@ -165,14 +165,14 @@ Responde con:
 2. Justificación clínica
 3. Qué faltó, de lo que hay disponible en el caso
 4. Qué pruebas faltaron, de las que están disponibles en el caso
-5. Feedback global, puntos fuertes y debiles del usuario
+5. Feedback global, puntos fuertes y debiles de la respuesta del usuario
 `;
 
 // =====================================================
 // 💊 FEEDBACK TRATAMIENTO
 // =====================================================
 const promptFeedbackTratamiento = (casoMD, respuesta) => `
-Eres un médico adjunto evaluando a un alumno de medicina, como si fueras un tutor socrático.
+Eres un médico adjunto evaluando a un alumno de medicina.
 
 CASO:
 ${casoMD}
@@ -186,7 +186,7 @@ Responde con:
 2. Errores, de mas graves a más sutiles u opcionales
 3. Tratamiento ideal, según la información disponible en el caso
 4. Prioridad clínica, con los datos disponibles del caso
-5. Feedback global, puntos fuertes y debiles del usuario
+5. Feedback global, puntos fuertes y debiles de la respuesta del usuario
 `;
 
 // =====================================================
