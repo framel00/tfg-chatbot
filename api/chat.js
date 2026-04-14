@@ -8,7 +8,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 // =====================================================
 function cargarCaso(nombreCaso) {
   try {
-    const ruta = path.join(process.cwd(), "casos", `${nombreCaso}.md`);
+    const ruta = path.join(process.cwd(), "data/casos", `${nombreCaso}.md`);
     return fs.readFileSync(ruta, "utf8");
   } catch (error) {
     console.error("Error cargando caso:", error);
