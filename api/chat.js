@@ -150,41 +150,80 @@ Si el médico da diagnóstico o tratamiento:
 // =====================================================
 // 🩺 FEEDBACK DIAGNÓSTICO
 // =====================================================
-const promptFeedbackDiagnostico = (casoMD, respuesta) => `
-Eres un médico adjunto evaluando a un alumno de medicina.
+const promptFeedbackDiagnostico = (casoMD, historial, respuesta) => `
+Eres un médico adjunto evaluando a un alumno de medicina en una simulación clínica tipo ECOE.
 
-CASO:
+━━━━━━━━━━━━━━━━━━━━━━━
+📚 CASO CLÍNICO
+━━━━━━━━━━━━━━━━━━━━━━━
 ${casoMD}
 
-DIAGNÓSTICO DEL ALUMNO:
+━━━━━━━━━━━━━━━━━━━━━━━
+🗂️ INTERACCIÓN DEL ALUMNO
+━━━━━━━━━━━━━━━━━━━━━━━
+${historial}
+
+━━━━━━━━━━━━━━━━━━━━━━━
+🧠 DIAGNÓSTICO FINAL DEL ALUMNO
+━━━━━━━━━━━━━━━━━━━━━━━
 ${respuesta}
 
-Responde con:
+━━━━━━━━━━━━━━━━━━━━━━━
+🩺 INSTRUCCIONES
+━━━━━━━━━━━━━━━━━━━━━━━
+
+Evalúa TODO el proceso clínico del alumno, no solo el diagnóstico final.
+
+Debes analizar:
+- Calidad de la anamnesis
+- Exploración solicitada
+- Pruebas pedidas
+- Razonamiento clínico
+
+━━━━━━━━━━━━━━━━━━━━━━━
+📊 RESPONDE CON:
 
 1. Correcto o incorrecto
 2. Justificación clínica
-3. Qué faltó, de lo que hay disponible en el caso
-4. Qué pruebas faltaron, de las que están disponibles en el caso
-5. Feedback global, puntos fuertes y debiles de la respuesta del usuario
+3. Qué faltó, dentro de los datos disponibles en el caso actual
+4. Qué pruebas faltaron, de las que están disponibles en el caso actual
+5. Feedback global, puntos fuertes y debiles del proceso diagnostico del usuario
 `;
 
 // =====================================================
 // 💊 FEEDBACK TRATAMIENTO
 // =====================================================
-const promptFeedbackTratamiento = (casoMD, respuesta) => `
-Eres un médico adjunto evaluando a un alumno de medicina.
 
-CASO:
+const promptFeedbackTratamiento = (casoMD, historial, respuesta) => `
+Eres un médico adjunto evaluando a un alumno.
+
+━━━━━━━━━━━━━━━━━━━━━━━
+📚 CASO CLÍNICO
+━━━━━━━━━━━━━━━━━━━━━━━
 ${casoMD}
 
-TRATAMIENTO PROPUESTO:
+━━━━━━━━━━━━━━━━━━━━━━━
+🗂️ INTERACCIÓN DEL ALUMNO
+━━━━━━━━━━━━━━━━━━━━━━━
+${historial}
+
+━━━━━━━━━━━━━━━━━━━━━━━
+💊 TRATAMIENTO DEL ALUMNO
+━━━━━━━━━━━━━━━━━━━━━━━
 ${respuesta}
 
-Responde con:
+Evalúa:
+- Adecuación del tratamiento
+- Si está alineado con el diagnóstico
+- Errores
+- Omisiones importantes
+
+━━━━━━━━━━━━━━━━━━━━━━━
+📊 RESPONDE CON:
 
 1. Adecuación
 2. Errores, de mas graves a más sutiles u opcionales
-3. Tratamiento ideal, según la información disponible en el caso
+3. Tratamiento ideal, dentro de los datos disponibles en el caso actual
 4. Prioridad clínica, con los datos disponibles del caso
 5. Feedback global, puntos fuertes y debiles de la respuesta del usuario
 `;
