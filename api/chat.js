@@ -81,7 +81,7 @@ Responde SOLO con una palabra:
 
 - diagnostico → afirmación clara del diagnóstico
 - tratamiento → propuesta terapéutica
-- sospecha → hipótesis
+- diagnostico → hipótesis
 - no → resto
 `;
 }
