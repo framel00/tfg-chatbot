@@ -34,7 +34,7 @@ function formatearHistorial(historial) {
       return null;
     })
     .filter(Boolean)
-    .slice(-12);
+    .slice(-25);
 }
 
 // =====================================================
