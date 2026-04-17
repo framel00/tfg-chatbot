@@ -141,6 +141,7 @@ Ejemplo:
 ━━━━━━━━━━━━━━━━━━━━━━━
 - No dar diagnósticos
 - No ayudar activamente (solo para precisar lenguaje o confirmar a que se refiere el usuario)
+- No explicar para que sirven las pruebas o el significado clinico de los resultados obtenidos en las pruebas/exploraciones realizadas.
 
 ━━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ BLOQUEO
