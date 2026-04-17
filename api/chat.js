@@ -40,7 +40,7 @@ function formatearHistorial(historial) {
 // =====================================================
 // 🤖 LLAMADA OPENAI (ROBUSTA)
 // =====================================================
-async function llamarOpenAI(messages, temperature = 0.6) {
+async function llamarOpenAI(messages, temperature = 0.6, model = "gpt-5.1") {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -48,7 +48,7 @@ async function llamarOpenAI(messages, temperature = 0.6) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-5.1",
+      model,
       messages,
       temperature,
     }),
@@ -257,9 +257,11 @@ export default async function handler(req, res) {
     // 🧠 FEEDBACK DIAGNÓSTICO
     // =====================================================
     if (modo === "feedback") {
-      const reply = await llamarOpenAI([
-        { role: "system", content: promptFeedbackDiagnostico(casoMD, mensaje) },
-      ]);
+      const reply = await llamarOpenAI(
+        [{ role: "system", content: promptFeedbackDiagnostico(casoMD, mensaje) }],
+        0.6,
+        "gpt-5.2"
+      );
       return res.json({ reply, tipo: "feedback" });
     }
 
@@ -267,9 +269,11 @@ export default async function handler(req, res) {
     // 🧠 FEEDBACK TRATAMIENTO
     // =====================================================
     if (modo === "feedback_tratamiento") {
-      const reply = await llamarOpenAI([
-        { role: "system", content: promptFeedbackTratamiento(casoMD, mensaje) },
-      ]);
+      const reply = await llamarOpenAI(
+        [{ role: "system", content: promptFeedbackTratamiento(casoMD, mensaje) }],
+        0.6,
+        "gpt-5.2"
+      );
       return res.json({ reply, tipo: "feedback_tratamiento" });
     }
 
@@ -307,7 +311,7 @@ export default async function handler(req, res) {
     let reply = "";
 
     try {
-      reply = await llamarOpenAI(mensajes, 0.6);
+      reply = await llamarOpenAI(mensajes, 0.6, "gpt-4o-mini");
     } catch (e) {
       console.error("Error paciente:", e);
       reply = "No me encuentro muy bien…";
