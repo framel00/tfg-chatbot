@@ -314,7 +314,7 @@ export default async function handler(req, res) {
     let reply = "";
 
     try {
-      reply = await llamarOpenAI(mensajes, 0.6, "gpt-4o-mini");
+      reply = await llamarOpenAI(mensajes, 0.6, "gpt-4.1-mini");
     } catch (e) {
       console.error("Error paciente:", e);
       reply = "No me encuentro muy bien…";
